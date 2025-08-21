@@ -1,12 +1,15 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import MainLayout from '../components/layout/MainLayout';
 import apiService, { ProjectListItem, CreateProjectRequest, UpdateProjectRequest, Project } from '../services/api';
 import ProjectCard from '../components/projects/ProjectCard';
 import ProjectForm from '../components/projects/ProjectForm';
+import { createSampleData } from '../utils/sampleData';
 
 const Projects: React.FC = () => {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
+  const [isCreatingSampleData, setIsCreatingSampleData] = useState(false);
   const [filters, setFilters] = useState({
     search: '',
     priority: '',
@@ -102,67 +105,93 @@ const Projects: React.FC = () => {
     }));
   };
 
+  const handleCreateSampleData = async () => {
+    setIsCreatingSampleData(true);
+    try {
+      const result = await createSampleData();
+      if (result.success) {
+        // Refresh the projects list
+        queryClient.invalidateQueries({ queryKey: ['projects'] });
+        console.log('✅ Sample data created successfully!');
+      } else {
+        console.error('❌ Failed to create sample data:', result.message);
+      }
+    } catch (error) {
+      console.error('❌ Error creating sample data:', error);
+    } finally {
+      setIsCreatingSampleData(false);
+    }
+  };
+
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary-600"></div>
-      </div>
+      <MainLayout>
+        <div className="flex items-center justify-center min-h-96">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-20 w-20 border-4 border-accent-600 border-t-transparent mx-auto mb-6 shadow-large"></div>
+            <p className="text-gray-600 font-bold text-lg tracking-wide">Loading projects...</p>
+          </div>
+        </div>
+      </MainLayout>
     );
   }
 
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <h2 className="text-2xl font-semibold text-gray-900 mb-2">Error loading projects</h2>
-          <p className="text-gray-600">Please try refreshing the page.</p>
+      <MainLayout>
+        <div className="flex items-center justify-center min-h-96">
+          <div className="text-center">
+            <div className="text-8xl mb-8 animate-pulse-soft">⚠️</div>
+            <h2 className="text-3xl font-bold text-gray-900 mb-4 tracking-tight">Error loading projects</h2>
+            <p className="text-gray-600 text-lg font-medium">Please try refreshing the page.</p>
+          </div>
         </div>
-      </div>
+      </MainLayout>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-6">
-            <h1 className="text-3xl font-bold text-gray-900">Projects</h1>
-            <button
-              onClick={() => setShowCreateForm(true)}
-              className="bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-md font-medium"
-            >
-              Create Project
-            </button>
+    <MainLayout>
+      <div className="space-y-4">
+        {/* Compact Header */}
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Projects 📁</h1>
+            <p className="text-gray-600 text-sm">Manage and organize your projects efficiently</p>
           </div>
+          <button
+            onClick={() => setShowCreateForm(true)}
+            className="inline-flex items-center bg-gradient-to-r from-accent-500 to-accent-600 hover:from-accent-600 hover:to-accent-700 text-white px-6 py-2 rounded-lg text-sm font-bold shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200"
+          >
+            <span className="mr-2">✨</span>
+            Create Project
+          </button>
         </div>
-      </div>
 
-      {/* Filters */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="bg-white p-4 rounded-lg shadow-sm mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* Compact Filters */}
+        <div className="bg-white p-4 rounded-lg shadow border border-gray-200">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             <div>
-              <label htmlFor="search" className="block text-sm font-medium text-gray-700 mb-1">
-                Search
+              <label htmlFor="search" className="block text-xs font-medium text-gray-700 mb-1">
+                🔍 Search
               </label>
               <input
                 type="text"
                 id="search"
                 placeholder="Search projects..."
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-300 text-sm"
                 value={filters.search}
                 onChange={(e) => handleFilterChange('search', e.target.value)}
               />
             </div>
             
             <div>
-              <label htmlFor="priority" className="block text-sm font-medium text-gray-700 mb-1">
-                Priority
+              <label htmlFor="priority" className="block text-xs font-medium text-gray-700 mb-1">
+                🎯 Priority
               </label>
               <select
                 id="priority"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-300 text-sm"
                 value={filters.priority}
                 onChange={(e) => handleFilterChange('priority', e.target.value)}
               >
@@ -175,12 +204,12 @@ const Projects: React.FC = () => {
             </div>
 
             <div>
-              <label htmlFor="archived" className="block text-sm font-medium text-gray-700 mb-1">
-                Status
+              <label htmlFor="archived" className="block text-xs font-medium text-gray-700 mb-1">
+                📊 Status
               </label>
               <select
                 id="archived"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-300 text-sm"
                 value={filters.is_archived.toString()}
                 onChange={(e) => handleFilterChange('is_archived', e.target.value === 'true')}
               >
@@ -194,30 +223,61 @@ const Projects: React.FC = () => {
         {/* Projects Grid */}
         {projects.length === 0 ? (
           <div className="text-center py-12">
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No projects found</h3>
-            <p className="text-gray-600 mb-6">
+            <div className="text-6xl mb-4">📁</div>
+            <h3 className="text-xl font-bold text-gray-900 mb-2">No projects found</h3>
+            <p className="text-gray-600 mb-6 max-w-md mx-auto">
               {filters.search || filters.priority || filters.is_archived
-                ? 'Try adjusting your filters or create a new project.'
-                : 'Get started by creating your first project.'}
+                ? 'Try adjusting your filters or create a new project to get started.'
+                : 'Transform your ideas into reality. Create your first project and start building something amazing.'}
             </p>
-            <button
-              onClick={() => setShowCreateForm(true)}
-              className="bg-primary-600 hover:bg-primary-700 text-white px-6 py-3 rounded-md font-medium"
-            >
-              Create Your First Project
-            </button>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <button
+                onClick={() => setShowCreateForm(true)}
+                className="inline-flex items-center bg-gradient-to-r from-accent-500 to-accent-600 hover:from-accent-600 hover:to-accent-700 text-white px-6 py-3 rounded-lg font-bold shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200"
+              >
+                <span className="mr-2">🚀</span>
+                Create Your First Project
+              </button>
+              <button
+                onClick={handleCreateSampleData}
+                disabled={isCreatingSampleData}
+                className="inline-flex items-center bg-gradient-to-r from-info-500 to-info-600 hover:from-info-600 hover:to-info-700 text-white px-6 py-3 rounded-lg font-bold shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+              >
+                {isCreatingSampleData ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2"></div>
+                    Creating...
+                  </>
+                ) : (
+                  <>
+                    <span className="mr-2">🎭</span>
+                    Try Sample Data
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {projects.map((project) => (
-              <ProjectCard
-                key={project.id}
-                project={project}
-                onEdit={handleEditProject}
-                onDelete={handleDeleteProject}
-                onArchive={handleArchiveProject}
-              />
-            ))}
+          <div className="bg-white rounded-lg shadow border border-gray-200">
+            <div className="flex items-center justify-between p-4 border-b border-gray-200">
+              <div className="text-sm text-gray-600">
+                {projects.length} project{projects.length !== 1 ? 's' : ''} found
+              </div>
+            </div>
+            <div className="p-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                {projects.map((project) => (
+                  <div key={project.id} className="project-card">
+                    <ProjectCard
+                      project={project}
+                      onEdit={handleEditProject}
+                      onDelete={handleDeleteProject}
+                      onArchive={handleArchiveProject}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         )}
       </div>
@@ -240,7 +300,7 @@ const Projects: React.FC = () => {
           isSubmitting={updateProjectMutation.isPending}
         />
       )}
-    </div>
+    </MainLayout>
   );
 };
 

@@ -4,6 +4,10 @@ import './index.css';
 import App from './App';
 import reportWebVitals from './reportWebVitals';
 
+// Import sample data scripts for console access
+import './utils/addSampleDataScript';
+import './utils/testAndAddData';
+
 const root = ReactDOM.createRoot(
   document.getElementById('root') as HTMLElement
 );

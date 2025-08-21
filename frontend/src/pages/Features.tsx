@@ -1,15 +1,21 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useSearchParams, Link } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
+import MainLayout from '../components/layout/MainLayout';
 import apiService, { FeatureListItem, CreateFeatureRequest, UpdateFeatureRequest, Feature } from '../services/api';
-import FeatureCard from '../components/features/FeatureCard';
 import FeatureForm from '../components/features/FeatureForm';
+import FeatureCard from '../components/features/FeatureCard';
+import FeatureDetailModal from '../components/features/FeatureDetailModal';
+import FeatureGanttView from '../components/features/FeatureGanttView';
 
 const Features: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [editingFeature, setEditingFeature] = useState<Feature | null>(null);
   const [statusChangingFeature, setStatusChangingFeature] = useState<FeatureListItem | null>(null);
+  const [viewMode, setViewMode] = useState<'list' | 'gantt'>('list');
+  const [selectedFeature, setSelectedFeature] = useState<FeatureListItem | null>(null);
+  const [creatingSubFeature, setCreatingSubFeature] = useState<string | null>(null);
   
   const [filters, setFilters] = useState({
     project: searchParams.get('project') || '',
@@ -139,8 +145,26 @@ const Features: React.FC = () => {
   };
 
   const handleViewDetails = (feature: FeatureListItem) => {
-    // Navigate to feature details page (to be implemented)
-    console.log('View details for feature:', feature.id);
+    setSelectedFeature(feature);
+  };
+
+  const handleFeatureModalSave = (updatedFeature: Feature) => {
+    queryClient.invalidateQueries({ queryKey: ['features'] });
+    setSelectedFeature(null);
+  };
+
+  const handleFeatureModalDelete = (featureId: string) => {
+    queryClient.invalidateQueries({ queryKey: ['features'] });
+  };
+
+  const handleCreateSubFeature = (parentId: string) => {
+    setCreatingSubFeature(parentId);
+    setSelectedFeature(null);
+  };
+
+  const handleSubFeatureSubmit = async (data: any) => {
+    await createFeatureMutation.mutateAsync(data as CreateFeatureRequest);
+    setCreatingSubFeature(null);
   };
 
   const handleFilterChange = (key: keyof typeof filters, value: string) => {
@@ -170,20 +194,28 @@ const Features: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary-600"></div>
-      </div>
+      <MainLayout>
+        <div className="flex items-center justify-center min-h-96">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-16 w-16 border-4 border-primary-600 border-t-transparent mx-auto mb-4"></div>
+            <p className="text-gray-600 font-medium">Loading features...</p>
+          </div>
+        </div>
+      </MainLayout>
     );
   }
 
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <h2 className="text-2xl font-semibold text-gray-900 mb-2">Error loading features</h2>
-          <p className="text-gray-600">Please try refreshing the page.</p>
+      <MainLayout>
+        <div className="flex items-center justify-center min-h-96">
+          <div className="text-center">
+            <div className="text-6xl mb-4">⚠️</div>
+            <h2 className="text-2xl font-semibold text-gray-900 mb-2">Error loading features</h2>
+            <p className="text-gray-600">Please try refreshing the page.</p>
+          </div>
         </div>
-      </div>
+      </MainLayout>
     );
   }
 
@@ -196,64 +228,47 @@ const Features: React.FC = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-6">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">Features</h1>
-              <nav className="flex space-x-4 mt-2">
-                <Link
-                  to="/dashboard"
-                  className="text-gray-500 hover:text-gray-700 text-sm font-medium"
-                >
-                  Dashboard
-                </Link>
-                <Link
-                  to="/projects"
-                  className="text-gray-500 hover:text-gray-700 text-sm font-medium"
-                >
-                  Projects
-                </Link>
-                <span className="text-gray-900 text-sm font-medium">Features</span>
-              </nav>
-            </div>
-            <button
-              onClick={() => setShowCreateForm(true)}
-              className="bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-md font-medium"
-            >
-              Create Feature
-            </button>
+    <MainLayout>
+      <div className="space-y-4">
+        {/* Compact Header */}
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Features ⚡</h1>
+            <p className="text-gray-600 text-sm">Build and track individual features across your projects</p>
           </div>
+          <button
+            onClick={() => setShowCreateForm(true)}
+            className="inline-flex items-center bg-gradient-to-r from-accent-500 to-accent-600 hover:from-accent-600 hover:to-accent-700 text-white px-6 py-2 rounded-lg text-sm font-bold shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200"
+          >
+            <span className="mr-2">✨</span>
+            Create Feature
+          </button>
         </div>
-      </div>
 
-      {/* Filters */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="bg-white p-4 rounded-lg shadow-sm mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
+        {/* Compact Filters */}
+        <div className="bg-white p-4 rounded-lg shadow border border-gray-200">
+          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-3">
             <div>
-              <label htmlFor="search" className="block text-sm font-medium text-gray-700 mb-1">
-                Search
+              <label htmlFor="search" className="block text-xs font-medium text-gray-700 mb-1">
+                🔍 Search
               </label>
               <input
                 type="text"
                 id="search"
                 placeholder="Search features..."
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 text-sm"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm"
                 value={filters.search}
                 onChange={(e) => handleFilterChange('search', e.target.value)}
               />
             </div>
-            
+          
             <div>
-              <label htmlFor="project" className="block text-sm font-medium text-gray-700 mb-1">
-                Project
+              <label htmlFor="project" className="block text-xs font-medium text-gray-700 mb-1">
+                📁 Project
               </label>
               <select
                 id="project"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 text-sm"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm"
                 value={filters.project}
                 onChange={(e) => handleFilterChange('project', e.target.value)}
               >
@@ -267,12 +282,12 @@ const Features: React.FC = () => {
             </div>
 
             <div>
-              <label htmlFor="status" className="block text-sm font-medium text-gray-700 mb-1">
-                Status
+              <label htmlFor="status" className="block text-xs font-medium text-gray-700 mb-1">
+                🚦 Status
               </label>
               <select
                 id="status"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 text-sm"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm"
                 value={filters.status}
                 onChange={(e) => handleFilterChange('status', e.target.value)}
               >
@@ -286,7 +301,7 @@ const Features: React.FC = () => {
             </div>
 
             <div>
-              <label htmlFor="priority" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="priority" className="block text-xs font-medium text-gray-700 mb-1">
                 Priority
               </label>
               <select
@@ -304,7 +319,7 @@ const Features: React.FC = () => {
             </div>
 
             <div>
-              <label htmlFor="parent" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="parent" className="block text-xs font-medium text-gray-700 mb-1">
                 Level
               </label>
               <select
@@ -321,42 +336,85 @@ const Features: React.FC = () => {
             <div className="flex items-end">
               <button
                 onClick={clearFilters}
-                className="w-full px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+                className="w-full px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors"
               >
-                Clear Filters
+                🗑️ Clear
               </button>
             </div>
           </div>
         </div>
 
-        {/* Features List */}
+        {/* Features Content */}
         {features.length === 0 ? (
           <div className="text-center py-12">
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No features found</h3>
-            <p className="text-gray-600 mb-6">
+            <div className="text-6xl mb-4">⚡</div>
+            <h3 className="text-xl font-bold text-gray-900 mb-2">No features found</h3>
+            <p className="text-gray-600 mb-6 max-w-md mx-auto">
               {Object.values(filters).some(v => v)
-                ? 'Try adjusting your filters or create a new feature.'
-                : 'Get started by creating your first feature.'}
+                ? 'Try adjusting your filters or create a new feature to get started.'
+                : 'Start building amazing features. Create your first feature and bring your ideas to life.'}
             </p>
             <button
               onClick={() => setShowCreateForm(true)}
-              className="bg-primary-600 hover:bg-primary-700 text-white px-6 py-3 rounded-md font-medium"
+              className="inline-flex items-center bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white px-6 py-3 rounded-lg font-semibold shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200"
             >
+              <span className="mr-2">🚀</span>
               Create Your First Feature
             </button>
           </div>
         ) : (
-          <div className="space-y-3">
-            {features.map((feature) => (
-              <FeatureCard
-                key={feature.id}
-                feature={feature}
-                onEdit={handleEditFeature}
-                onDelete={handleDeleteFeature}
-                onStatusChange={handleStatusChange}
-                onViewDetails={handleViewDetails}
-              />
-            ))}
+          <div className="bg-white rounded-lg shadow border border-gray-200">
+            <div className="flex items-center justify-between p-4 border-b border-gray-200">
+              <div className="text-sm text-gray-600">
+                {features.length} feature{features.length !== 1 ? 's' : ''} found
+              </div>
+              <div className="flex items-center space-x-2 bg-gray-100 rounded-lg p-1">
+                <button
+                  onClick={() => setViewMode('list')}
+                  className={`flex items-center px-3 py-1 rounded text-sm font-medium transition-all duration-200 ${
+                    viewMode === 'list'
+                      ? 'bg-white text-primary-600 shadow-sm'
+                      : 'text-gray-600 hover:text-gray-800'
+                  }`}
+                >
+                  <span className="mr-1">📋</span>
+                  List
+                </button>
+                <button
+                  onClick={() => setViewMode('gantt')}
+                  className={`flex items-center px-3 py-1 rounded text-sm font-medium transition-all duration-200 ${
+                    viewMode === 'gantt'
+                      ? 'bg-white text-primary-600 shadow-sm'
+                      : 'text-gray-600 hover:text-gray-800'
+                  }`}
+                >
+                  <span className="mr-1">📈</span>
+                  Gantt
+                </button>
+              </div>
+            </div>
+            <div className="p-4">
+              {viewMode === 'list' ? (
+                <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+                  {features.map((feature) => (
+                    <div key={feature.id} className="feature-card">
+                      <FeatureCard
+                        feature={feature}
+                        onEdit={handleEditFeature}
+                        onDelete={handleDeleteFeature}
+                        onStatusChange={handleStatusChange}
+                        onViewDetails={handleViewDetails}
+                      />
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <FeatureGanttView
+                  features={features}
+                  onFeatureClick={handleViewDetails}
+                />
+              )}
+            </div>
           </div>
         )}
       </div>
@@ -367,6 +425,16 @@ const Features: React.FC = () => {
           projectId={filters.project}
           onSubmit={handleCreateFeature}
           onCancel={() => setShowCreateForm(false)}
+          isSubmitting={createFeatureMutation.isPending}
+        />
+      )}
+
+      {/* Create Sub-Feature Form */}
+      {creatingSubFeature && (
+        <FeatureForm
+          parentId={creatingSubFeature}
+          onSubmit={handleSubFeatureSubmit}
+          onCancel={() => setCreatingSubFeature(null)}
           isSubmitting={createFeatureMutation.isPending}
         />
       )}
@@ -448,7 +516,17 @@ const Features: React.FC = () => {
           </div>
         </div>
       )}
-    </div>
+
+      {/* Feature Detail Modal */}
+      <FeatureDetailModal
+        feature={selectedFeature}
+        isOpen={!!selectedFeature}
+        onClose={() => setSelectedFeature(null)}
+        onSave={handleFeatureModalSave}
+        onDelete={handleFeatureModalDelete}
+        onCreateSubFeature={handleCreateSubFeature}
+      />
+    </MainLayout>
   );
 };
 

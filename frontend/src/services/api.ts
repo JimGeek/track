@@ -188,6 +188,35 @@ export interface FeatureAttachment {
   uploaded_at: string;
 }
 
+// Dashboard Types
+export interface RecentActivity {
+  id: string;
+  type: 'project_created' | 'project_updated' | 'feature_created' | 'feature_updated' | 'feature_status_changed' | 'comment_added';
+  title: string;
+  description: string;
+  user: User;
+  project_name: string;
+  project_id: string;
+  feature_id?: string;
+  feature_title?: string;
+  timestamp: string;
+}
+
+export interface UpcomingFeature {
+  id: string;
+  title: string;
+  due_date: string;
+  priority: 'low' | 'medium' | 'high' | 'critical';
+  status: 'idea' | 'specification' | 'development' | 'testing' | 'live';
+  project_name: string;
+  project_id: string;
+  assignee: User | null;
+  days_until_due: number;
+  is_overdue: boolean;
+  parent_title?: string;
+  hierarchy_level: number;
+}
+
 export interface LoginRequest {
   email: string;
   password: string;
@@ -623,6 +652,19 @@ class ApiService {
     overdue_projects: number;
   }>> {
     return this.client.get('/api/projects/dashboard_summary/');
+  }
+
+  // Dashboard Activity and Upcoming Features
+  async getRecentActivity(limit: number = 20): Promise<AxiosResponse<{ results: RecentActivity[] }>> {
+    return this.client.get(`/api/dashboard/recent-activity/?limit=${limit}`);
+  }
+
+  async getUpcomingFeatures(days: number = 30): Promise<AxiosResponse<{ 
+    next_7_days: UpcomingFeature[];
+    next_15_days: UpcomingFeature[];
+    next_30_days: UpcomingFeature[];
+  }>> {
+    return this.client.get(`/api/dashboard/upcoming-features/?days=${days}`);
   }
 
   // Feature Management Methods
