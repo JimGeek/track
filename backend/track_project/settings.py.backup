@@ -25,9 +25,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = "django-insecure-&@=ak6=*puv_8*9(gpk0jee4b_()$$8o#ipl2*6w0%3754e=%3"
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = config("DEBUG", default=True, cast=bool)
+DEBUG = True
 
-ALLOWED_HOSTS = config("ALLOWED_HOSTS", default="localhost,127.0.0.1", cast=lambda v: [h.strip() for h in v.split(",")])
+ALLOWED_HOSTS = []
 
 
 # Application definition
@@ -91,20 +91,10 @@ WSGI_APPLICATION = "track_project.wsgi.application"
 
 DATABASES = {
     "default": {
-        "ENGINE": config("DB_ENGINE", default="django.db.backends.sqlite3"),
-        "NAME": config("DB_NAME", default=str(BASE_DIR / "db.sqlite3")),
-        "USER": config("DB_USER", default=""),
-        "PASSWORD": config("DB_PASSWORD", default=""),
-        "HOST": config("DB_HOST", default=""),
-        "PORT": config("DB_PORT", default=""),
+        "ENGINE": "django.db.backends.sqlite3",
+        "NAME": BASE_DIR / "db.sqlite3",
     }
 }
-
-# If DATABASE_URL is provided, parse it
-DATABASE_URL = config("DATABASE_URL", default="")
-if DATABASE_URL:
-    import dj_database_url
-    DATABASES["default"] = dj_database_url.parse(DATABASE_URL)
 
 
 # Internationalization
@@ -183,11 +173,10 @@ SIMPLE_JWT = {
 }
 
 # CORS Configuration for frontend-backend communication
-CORS_ALLOWED_ORIGINS = config(
-    "CORS_ALLOWED_ORIGINS", 
-    default="http://localhost:3000,http://127.0.0.1:3000", 
-    cast=lambda v: [h.strip() for h in v.split(",")]
-)
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000",  # React development server
+    "http://127.0.0.1:3000",
+]
 
 CORS_ALLOW_CREDENTIALS = True
 
