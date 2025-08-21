@@ -135,6 +135,7 @@ export interface FeatureListItem {
   is_overdue: boolean;
   is_completed: boolean;
   hierarchy_level: number;
+  full_path: string;
   progress_percentage: number;
   can_edit: boolean;
   sub_features_count: number;
@@ -198,6 +199,171 @@ export interface PasswordResetConfirm {
   token: string;
   new_password: string;
   new_password_confirm: string;
+}
+
+// Workflow Types
+export interface WorkflowTemplate {
+  id: string;
+  name: string;
+  description: string;
+  entity_type: 'feature' | 'project';
+  is_active: boolean;
+  created_by_name: string;
+  states: WorkflowState[];
+  transitions: WorkflowTransition[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface WorkflowState {
+  id: string;
+  name: string;
+  slug: string;
+  description: string;
+  color: string;
+  icon: string;
+  is_initial: boolean;
+  is_final: boolean;
+  order: number;
+  auto_assign_to_creator: boolean;
+  require_assignee: boolean;
+  require_comment: boolean;
+  notify_stakeholders: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface WorkflowTransition {
+  id: string;
+  from_state: string;
+  to_state: string;
+  from_state_name: string;
+  to_state_name: string;
+  name: string;
+  description: string;
+  require_permission: string;
+  require_role: 'owner' | 'assignee' | 'admin' | 'any';
+  require_all_subtasks_complete: boolean;
+  require_comment: boolean;
+  auto_assign_to_user: string | null;
+  auto_assign_to_user_email: string | null;
+  auto_set_due_date_days: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface WorkflowHistory {
+  id: string;
+  template: string;
+  entity_type: string;
+  entity_id: string;
+  from_state: string | null;
+  to_state: string;
+  from_state_name: string | null;
+  to_state_name: string;
+  transition: string | null;
+  transition_name: string | null;
+  changed_by: string;
+  changed_by_name: string;
+  comment: string;
+  metadata: Record<string, any>;
+  created_at: string;
+}
+
+export interface WorkflowRule {
+  id: string;
+  name: string;
+  description: string;
+  trigger_on_state: string;
+  trigger_on_state_name: string;
+  trigger_condition: Record<string, any>;
+  action_type: 'auto_transition' | 'send_notification' | 'assign_user' | 'set_due_date' | 'add_comment' | 'webhook';
+  action_config: Record<string, any>;
+  is_active: boolean;
+  priority: number;
+  created_by: string;
+  created_by_name: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface WorkflowMetrics {
+  id: string;
+  template: string;
+  template_name: string;
+  state: string;
+  state_name: string;
+  avg_time_in_state_hours: number;
+  total_entries: number;
+  total_exits: number;
+  completion_rate: number;
+  period_start: string;
+  period_end: string;
+  created_at: string;
+  updated_at: string;
+}
+
+// Workflow Creation Types
+export interface CreateWorkflowTemplateRequest {
+  name: string;
+  description: string;
+  entity_type: 'feature' | 'project';
+  initial_states?: Array<{
+    name: string;
+    slug?: string;
+    description?: string;
+    color?: string;
+    icon?: string;
+    is_initial?: boolean;
+    is_final?: boolean;
+    order?: number;
+    auto_assign_to_creator?: boolean;
+    require_assignee?: boolean;
+    require_comment?: boolean;
+    notify_stakeholders?: boolean;
+  }>;
+}
+
+export interface CreateWorkflowStateRequest {
+  template: string;
+  name: string;
+  slug: string;
+  description?: string;
+  color?: string;
+  icon?: string;
+  is_initial?: boolean;
+  is_final?: boolean;
+  order?: number;
+  auto_assign_to_creator?: boolean;
+  require_assignee?: boolean;
+  require_comment?: boolean;
+  notify_stakeholders?: boolean;
+}
+
+export interface CreateWorkflowTransitionRequest {
+  template: string;
+  from_state: string;
+  to_state: string;
+  name: string;
+  description?: string;
+  require_permission?: string;
+  require_role?: 'owner' | 'assignee' | 'admin' | 'any';
+  require_all_subtasks_complete?: boolean;
+  require_comment?: boolean;
+  auto_assign_to_user?: string;
+  auto_set_due_date_days?: number;
+}
+
+export interface CreateWorkflowRuleRequest {
+  template: string;
+  name: string;
+  description?: string;
+  trigger_on_state: string;
+  trigger_condition?: Record<string, any>;
+  action_type: 'auto_transition' | 'send_notification' | 'assign_user' | 'set_due_date' | 'add_comment' | 'webhook';
+  action_config?: Record<string, any>;
+  is_active?: boolean;
+  priority?: number;
 }
 
 // API Configuration
@@ -549,6 +715,139 @@ class ApiService {
 
   async deleteFeatureAttachment(featureId: string, attachmentId: string): Promise<void> {
     await this.client.delete(`/api/features/${featureId}/attachments/${attachmentId}/`);
+  }
+
+  // Workflow Management
+  async getWorkflowTemplates(): Promise<AxiosResponse<{ results: WorkflowTemplate[] }>> {
+    return this.client.get('/api/workflow/templates/');
+  }
+
+  async getWorkflowTemplate(templateId: string): Promise<AxiosResponse<WorkflowTemplate>> {
+    return this.client.get(`/api/workflow/templates/${templateId}/`);
+  }
+
+  async createWorkflowTemplate(data: CreateWorkflowTemplateRequest): Promise<AxiosResponse<WorkflowTemplate>> {
+    return this.client.post('/api/workflow/templates/', data);
+  }
+
+  async updateWorkflowTemplate(templateId: string, data: Partial<WorkflowTemplate>): Promise<AxiosResponse<WorkflowTemplate>> {
+    return this.client.patch(`/api/workflow/templates/${templateId}/`, data);
+  }
+
+  async deleteWorkflowTemplate(templateId: string): Promise<void> {
+    await this.client.delete(`/api/workflow/templates/${templateId}/`);
+  }
+
+  async duplicateWorkflowTemplate(templateId: string): Promise<AxiosResponse<WorkflowTemplate>> {
+    return this.client.post(`/api/workflow/templates/${templateId}/duplicate/`);
+  }
+
+  async getWorkflowTemplateStates(templateId: string): Promise<AxiosResponse<WorkflowState[]>> {
+    return this.client.get(`/api/workflow/templates/${templateId}/states/`);
+  }
+
+  async getWorkflowTemplateTransitions(templateId: string): Promise<AxiosResponse<WorkflowTransition[]>> {
+    return this.client.get(`/api/workflow/templates/${templateId}/transitions/`);
+  }
+
+  async getWorkflowTemplateMetrics(templateId: string, days: number = 30): Promise<AxiosResponse<WorkflowMetrics[]>> {
+    return this.client.get(`/api/workflow/templates/${templateId}/metrics/?days=${days}`);
+  }
+
+  async getWorkflowTemplateUsageStats(templateId: string, days: number = 30): Promise<AxiosResponse<{
+    period: { start: string; end: string; days: number };
+    totals: { transitions: number; unique_entities: number; avg_transitions_per_day: number };
+    state_distribution: Array<{ to_state__name: string; count: number }>;
+    daily_activity: Array<{ day: string; count: number }>;
+  }>> {
+    return this.client.get(`/api/workflow/templates/${templateId}/usage_stats/?days=${days}`);
+  }
+
+  // Workflow States
+  async getWorkflowStates(): Promise<AxiosResponse<{ results: WorkflowState[] }>> {
+    return this.client.get('/api/workflow/states/');
+  }
+
+  async createWorkflowState(data: CreateWorkflowStateRequest): Promise<AxiosResponse<WorkflowState>> {
+    return this.client.post('/api/workflow/states/', data);
+  }
+
+  async updateWorkflowState(stateId: string, data: Partial<WorkflowState>): Promise<AxiosResponse<WorkflowState>> {
+    return this.client.patch(`/api/workflow/states/${stateId}/`, data);
+  }
+
+  async deleteWorkflowState(stateId: string): Promise<void> {
+    await this.client.delete(`/api/workflow/states/${stateId}/`);
+  }
+
+  // Workflow Transitions
+  async getWorkflowTransitions(): Promise<AxiosResponse<{ results: WorkflowTransition[] }>> {
+    return this.client.get('/api/workflow/transitions/');
+  }
+
+  async createWorkflowTransition(data: CreateWorkflowTransitionRequest): Promise<AxiosResponse<WorkflowTransition>> {
+    return this.client.post('/api/workflow/transitions/', data);
+  }
+
+  async updateWorkflowTransition(transitionId: string, data: Partial<WorkflowTransition>): Promise<AxiosResponse<WorkflowTransition>> {
+    return this.client.patch(`/api/workflow/transitions/${transitionId}/`, data);
+  }
+
+  async deleteWorkflowTransition(transitionId: string): Promise<void> {
+    await this.client.delete(`/api/workflow/transitions/${transitionId}/`);
+  }
+
+  // Workflow History
+  async getWorkflowHistory(filters?: {
+    entity_type?: string;
+    entity_id?: string;
+    template?: string;
+  }): Promise<AxiosResponse<{ results: WorkflowHistory[] }>> {
+    const params = new URLSearchParams();
+    if (filters?.entity_type) params.set('entity_type', filters.entity_type);
+    if (filters?.entity_id) params.set('entity_id', filters.entity_id);
+    if (filters?.template) params.set('template', filters.template);
+    
+    const queryString = params.toString();
+    return this.client.get(`/api/workflow/history/${queryString ? `?${queryString}` : ''}`);
+  }
+
+  async getEntityWorkflowHistory(entityType: string, entityId: string): Promise<AxiosResponse<{ results: WorkflowHistory[] }>> {
+    return this.client.get(`/api/workflow/history/entity_history/?entity_type=${entityType}&entity_id=${entityId}`);
+  }
+
+  // Workflow Rules
+  async getWorkflowRules(): Promise<AxiosResponse<{ results: WorkflowRule[] }>> {
+    return this.client.get('/api/workflow/rules/');
+  }
+
+  async createWorkflowRule(data: CreateWorkflowRuleRequest): Promise<AxiosResponse<WorkflowRule>> {
+    return this.client.post('/api/workflow/rules/', data);
+  }
+
+  async updateWorkflowRule(ruleId: string, data: Partial<WorkflowRule>): Promise<AxiosResponse<WorkflowRule>> {
+    return this.client.patch(`/api/workflow/rules/${ruleId}/`, data);
+  }
+
+  async deleteWorkflowRule(ruleId: string): Promise<void> {
+    await this.client.delete(`/api/workflow/rules/${ruleId}/`);
+  }
+
+  async toggleWorkflowRule(ruleId: string): Promise<AxiosResponse<{ detail: string; rule: WorkflowRule }>> {
+    return this.client.post(`/api/workflow/rules/${ruleId}/toggle_active/`);
+  }
+
+  // Workflow Metrics
+  async calculateWorkflowMetrics(data: {
+    template_id: string;
+    start_date: string;
+    end_date: string;
+  }): Promise<AxiosResponse<{
+    detail: string;
+    metrics_count: number;
+    template: string;
+  }>> {
+    return this.client.post('/api/workflow/metrics/calculate/', data);
   }
 }
 

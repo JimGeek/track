@@ -77,7 +77,8 @@ class FeatureViewSet(ModelViewSet):
     @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated, IsFeatureStakeholder])
     def advance_status(self, request, pk=None):
         feature = self.get_object()
-        if feature.advance_status():
+        comment = request.data.get('comment', '')
+        if feature.advance_status(user=request.user, comment=comment):
             serializer = self.get_serializer(feature)
             return Response({
                 'detail': f'Feature status advanced to {feature.status}.',
@@ -92,7 +93,8 @@ class FeatureViewSet(ModelViewSet):
     @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated, IsFeatureStakeholder])
     def revert_status(self, request, pk=None):
         feature = self.get_object()
-        if feature.revert_status():
+        comment = request.data.get('comment', '')
+        if feature.revert_status(user=request.user, comment=comment):
             serializer = self.get_serializer(feature)
             return Response({
                 'detail': f'Feature status reverted to {feature.status}.',
@@ -108,6 +110,7 @@ class FeatureViewSet(ModelViewSet):
     def set_status(self, request, pk=None):
         feature = self.get_object()
         new_status = request.data.get('status')
+        comment = request.data.get('comment', '')
         
         if new_status not in [choice[0] for choice in Feature.STATUS_CHOICES]:
             return Response(
@@ -115,22 +118,17 @@ class FeatureViewSet(ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        old_status = feature.status
-        feature.status = new_status
-        
-        if new_status == 'live':
-            from django.utils import timezone
-            feature.completed_date = timezone.now()
-        elif old_status == 'live':
-            feature.completed_date = None
-        
-        feature.save()
-        
-        serializer = self.get_serializer(feature)
-        return Response({
-            'detail': f'Feature status changed from {old_status} to {new_status}.',
-            'feature': serializer.data
-        })
+        if feature.set_status(new_status, user=request.user, comment=comment):
+            serializer = self.get_serializer(feature)
+            return Response({
+                'detail': f'Feature status changed to {new_status}.',
+                'feature': serializer.data
+            })
+        else:
+            return Response(
+                {'detail': 'Invalid status provided.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
     @action(detail=True, methods=['get'])
     def hierarchy(self, request, pk=None):

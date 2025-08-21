@@ -51,6 +51,7 @@ INSTALLED_APPS = [
     "accounts",
     "projects",
     "features",
+    "workflow",
 ]
 
 MIDDLEWARE = [

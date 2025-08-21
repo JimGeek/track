@@ -137,26 +137,87 @@ class Feature(models.Model):
             return status_flow[current_index - 1]
         return None
 
-    def advance_status(self):
+    def advance_status(self, user=None, comment=''):
         next_status = self.get_next_status()
         if next_status:
+            old_status = self.status
             self.status = next_status
             if next_status == 'live':
                 from django.utils import timezone
                 self.completed_date = timezone.now()
             self.save()
+            
+            # Record workflow history if workflow system is available
+            self._record_status_change(old_status, next_status, user, comment)
             return True
         return False
 
-    def revert_status(self):
+    def revert_status(self, user=None, comment=''):
         previous_status = self.get_previous_status()
         if previous_status:
+            old_status = self.status
             self.status = previous_status
             if previous_status != 'live':
                 self.completed_date = None
             self.save()
+            
+            # Record workflow history if workflow system is available
+            self._record_status_change(old_status, previous_status, user, comment)
             return True
         return False
+
+    def set_status(self, new_status, user=None, comment=''):
+        if new_status in dict(self.STATUS_CHOICES):
+            old_status = self.status
+            self.status = new_status
+            if new_status == 'live':
+                from django.utils import timezone
+                self.completed_date = timezone.now()
+            elif old_status == 'live' and new_status != 'live':
+                self.completed_date = None
+            self.save()
+            
+            # Record workflow history if workflow system is available
+            self._record_status_change(old_status, new_status, user, comment)
+            return True
+        return False
+
+    def _record_status_change(self, from_status, to_status, user, comment):
+        """Record status change in workflow history"""
+        try:
+            from workflow.models import WorkflowHistory, WorkflowTemplate, WorkflowState
+            
+            # Try to find a workflow template for features
+            template = WorkflowTemplate.objects.filter(
+                entity_type='feature',
+                is_active=True
+            ).first()
+            
+            if template:
+                try:
+                    from_state = WorkflowState.objects.get(template=template, slug=from_status) if from_status else None
+                    to_state = WorkflowState.objects.get(template=template, slug=to_status)
+                    
+                    WorkflowHistory.objects.create(
+                        template=template,
+                        entity_type='feature',
+                        entity_id=self.id,
+                        from_state=from_state,
+                        to_state=to_state,
+                        changed_by=user or self.reporter,
+                        comment=comment,
+                        metadata={
+                            'feature_title': self.title,
+                            'project': str(self.project.id),
+                            'assignee': str(self.assignee.id) if self.assignee else None,
+                        }
+                    )
+                except WorkflowState.DoesNotExist:
+                    # States don't exist in workflow template, skip recording
+                    pass
+        except ImportError:
+            # Workflow app not available, skip recording
+            pass
 
     def get_total_estimated_hours(self):
         if not self.sub_features.exists():
