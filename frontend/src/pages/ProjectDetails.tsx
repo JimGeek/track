@@ -4,7 +4,7 @@ import { Project, FeatureListItem } from '../services/api';
 import { apiService } from '../services/api';
 import { useResponsive } from '../hooks/useResponsive';
 import MainLayout from '../components/layout/MainLayout';
-import LoadingSpinner from '../components/common/LoadingSpinner';
+import LoadingSpinner from '../components/ui/LoadingSpinner';
 import ProjectHeader from '../components/projects/ProjectHeader';
 import ProjectOverview from '../components/projects/ProjectOverview';
 import FeatureCard from '../components/features/FeatureCard';

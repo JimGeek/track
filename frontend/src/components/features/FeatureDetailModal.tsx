@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { FeatureListItem, Feature } from '../../services/api';
 import { apiService } from '../../services/api';
-import LoadingSpinner from '../common/LoadingSpinner';
+import LoadingSpinner from '../ui/LoadingSpinner';
 
 interface FeatureDetailModalProps {
   feature: FeatureListItem | null;
