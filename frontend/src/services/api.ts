@@ -53,6 +53,7 @@ export interface ProjectListItem {
   id: string;
   name: string;
   description: string;
+  status: 'planning' | 'active' | 'on_hold' | 'completed' | 'cancelled';
   owner: User;
   team_members_count: number;
   priority: 'low' | 'medium' | 'high' | 'critical';
@@ -124,6 +125,7 @@ export interface FeatureListItem {
   assignee: User | null;
   reporter: User;
   project_name: string;
+  parent: string | null;
   parent_title: string | null;
   estimated_hours: number | null;
   actual_hours: number | null;
@@ -452,6 +454,25 @@ class ApiService {
 
   clearUser(): void {
     localStorage.removeItem('user');
+  }
+
+  // User Management
+  async getUsers(): Promise<AxiosResponse<{ results: User[] }>> {
+    return this.client.get('/api/auth/users/');
+  }
+
+  async getUserById(userId: string): Promise<AxiosResponse<User>> {
+    return this.client.get(`/api/auth/users/${userId}/`);
+  }
+
+  // Dashboard Stats
+  async getDashboardStats(): Promise<AxiosResponse<{
+    projects_count: number;
+    features_count: number;
+    users_count: number;
+    active_projects_count: number;
+  }>> {
+    return this.client.get('/api/dashboard/stats/');
   }
 
   // Authentication API calls
