@@ -45,9 +45,11 @@ INSTALLED_APPS = [
     "rest_framework_simplejwt",
     "corsheaders",
     "django_ratelimit",
+    "django_filters",
     
     # Local apps
     "accounts",
+    "projects",
 ]
 
 MIDDLEWARE = [

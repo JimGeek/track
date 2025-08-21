@@ -31,6 +31,58 @@ export interface RegisterRequest {
   last_name: string;
 }
 
+export interface Project {
+  id: string;
+  name: string;
+  description: string;
+  owner: User;
+  team_members: User[];
+  priority: 'low' | 'medium' | 'high' | 'critical';
+  deadline: string | null;
+  created_at: string;
+  updated_at: string;
+  is_archived: boolean;
+  total_features: number;
+  completed_features: number;
+  progress_percentage: number;
+  is_overdue: boolean;
+  can_edit: boolean;
+}
+
+export interface ProjectListItem {
+  id: string;
+  name: string;
+  description: string;
+  owner: User;
+  team_members_count: number;
+  priority: 'low' | 'medium' | 'high' | 'critical';
+  deadline: string | null;
+  created_at: string;
+  updated_at: string;
+  is_archived: boolean;
+  total_features: number;
+  completed_features: number;
+  progress_percentage: number;
+  is_overdue: boolean;
+  can_edit: boolean;
+}
+
+export interface CreateProjectRequest {
+  name: string;
+  description?: string;
+  priority?: 'low' | 'medium' | 'high' | 'critical';
+  deadline?: string;
+  team_member_emails?: string[];
+}
+
+export interface UpdateProjectRequest {
+  name?: string;
+  description?: string;
+  priority?: 'low' | 'medium' | 'high' | 'critical';
+  deadline?: string;
+  team_member_emails?: string[];
+}
+
 export interface LoginRequest {
   email: string;
   password: string;
@@ -210,6 +262,78 @@ class ApiService {
 
   async healthCheck(): Promise<AxiosResponse<{ status: string }>> {
     return this.client.get<{ status: string }>('/api/auth/health/');
+  }
+
+  // Project Management Methods
+  async getProjects(params?: {
+    search?: string;
+    priority?: string;
+    is_archived?: boolean;
+    ordering?: string;
+  }): Promise<AxiosResponse<{ results: ProjectListItem[]; count: number; next: string | null; previous: string | null }>> {
+    const searchParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== '') {
+          searchParams.append(key, String(value));
+        }
+      });
+    }
+    const queryString = searchParams.toString();
+    const url = queryString ? `/api/projects/?${queryString}` : '/api/projects/';
+    return this.client.get(url);
+  }
+
+  async getProject(id: string): Promise<AxiosResponse<Project>> {
+    return this.client.get(`/api/projects/${id}/`);
+  }
+
+  async createProject(data: CreateProjectRequest): Promise<AxiosResponse<Project>> {
+    return this.client.post('/api/projects/', data);
+  }
+
+  async updateProject(id: string, data: UpdateProjectRequest): Promise<AxiosResponse<Project>> {
+    return this.client.patch(`/api/projects/${id}/`, data);
+  }
+
+  async deleteProject(id: string): Promise<void> {
+    await this.client.delete(`/api/projects/${id}/`);
+  }
+
+  async archiveProject(id: string): Promise<AxiosResponse<{ detail: string; project: Project }>> {
+    return this.client.post(`/api/projects/${id}/archive/`);
+  }
+
+  async unarchiveProject(id: string): Promise<AxiosResponse<{ detail: string; project: Project }>> {
+    return this.client.post(`/api/projects/${id}/unarchive/`);
+  }
+
+  async getProjectStatistics(id: string): Promise<AxiosResponse<{
+    total_features: number;
+    completed_features: number;
+    progress_percentage: number;
+    is_overdue: boolean;
+    team_members_count: number;
+    created_at: string;
+    last_updated: string;
+  }>> {
+    return this.client.get(`/api/projects/${id}/statistics/`);
+  }
+
+  async getMyProjects(): Promise<AxiosResponse<{
+    owned_projects: ProjectListItem[];
+    team_projects: ProjectListItem[];
+  }>> {
+    return this.client.get('/api/projects/my_projects/');
+  }
+
+  async getDashboardSummary(): Promise<AxiosResponse<{
+    total_projects: number;
+    active_projects: number;
+    archived_projects: number;
+    overdue_projects: number;
+  }>> {
+    return this.client.get('/api/projects/dashboard_summary/');
   }
 }
 
