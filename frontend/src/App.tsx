@@ -7,6 +7,7 @@ import RegisterForm from './components/auth/RegisterForm';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import Dashboard from './pages/Dashboard';
 import Projects from './pages/Projects';
+import Features from './pages/Features';
 import './App.css';
 
 const queryClient = new QueryClient({
@@ -40,6 +41,14 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <Projects />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/features"
+                element={
+                  <ProtectedRoute>
+                    <Features />
                   </ProtectedRoute>
                 }
               />

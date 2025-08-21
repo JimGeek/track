@@ -83,6 +83,108 @@ export interface UpdateProjectRequest {
   team_member_emails?: string[];
 }
 
+export interface Feature {
+  id: string;
+  project: string;
+  parent: string | null;
+  title: string;
+  description: string;
+  status: 'idea' | 'specification' | 'development' | 'testing' | 'live';
+  priority: 'low' | 'medium' | 'high' | 'critical';
+  assignee: User | null;
+  reporter: User;
+  estimated_hours: number | null;
+  actual_hours: number | null;
+  due_date: string | null;
+  completed_date: string | null;
+  created_at: string;
+  updated_at: string;
+  order: number;
+  is_overdue: boolean;
+  is_completed: boolean;
+  hierarchy_level: number;
+  full_path: string;
+  progress_percentage: number;
+  can_edit: boolean;
+  total_estimated_hours: number;
+  total_actual_hours: number;
+  next_status: string | null;
+  previous_status: string | null;
+  comments: FeatureComment[];
+  attachments: FeatureAttachment[];
+  sub_features: FeatureListItem[];
+}
+
+export interface FeatureListItem {
+  id: string;
+  title: string;
+  description: string;
+  status: 'idea' | 'specification' | 'development' | 'testing' | 'live';
+  priority: 'low' | 'medium' | 'high' | 'critical';
+  assignee: User | null;
+  reporter: User;
+  project_name: string;
+  parent_title: string | null;
+  estimated_hours: number | null;
+  actual_hours: number | null;
+  due_date: string | null;
+  completed_date: string | null;
+  created_at: string;
+  updated_at: string;
+  order: number;
+  is_overdue: boolean;
+  is_completed: boolean;
+  hierarchy_level: number;
+  progress_percentage: number;
+  can_edit: boolean;
+  sub_features_count: number;
+  comments_count: number;
+  attachments_count: number;
+}
+
+export interface CreateFeatureRequest {
+  project: string;
+  parent?: string;
+  title: string;
+  description: string;
+  priority?: 'low' | 'medium' | 'high' | 'critical';
+  assignee_email?: string;
+  estimated_hours?: number;
+  due_date?: string;
+  order?: number;
+}
+
+export interface UpdateFeatureRequest {
+  title?: string;
+  description?: string;
+  status?: 'idea' | 'specification' | 'development' | 'testing' | 'live';
+  priority?: 'low' | 'medium' | 'high' | 'critical';
+  assignee_email?: string;
+  estimated_hours?: number;
+  actual_hours?: number;
+  due_date?: string;
+  order?: number;
+}
+
+export interface FeatureComment {
+  id: string;
+  content: string;
+  author: User;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface FeatureAttachment {
+  id: string;
+  file: string;
+  filename: string;
+  file_size: number;
+  file_size_display: string;
+  content_type: string;
+  uploaded_by: User;
+  uploaded_at: string;
+}
+
 export interface LoginRequest {
   email: string;
   password: string;
@@ -334,6 +436,119 @@ class ApiService {
     overdue_projects: number;
   }>> {
     return this.client.get('/api/projects/dashboard_summary/');
+  }
+
+  // Feature Management Methods
+  async getFeatures(params?: {
+    project?: string;
+    parent?: string;
+    status?: string;
+    priority?: string;
+    assignee?: string;
+    search?: string;
+    ordering?: string;
+  }): Promise<AxiosResponse<{ results: FeatureListItem[]; count: number; next: string | null; previous: string | null }>> {
+    const searchParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== '') {
+          searchParams.append(key, String(value));
+        }
+      });
+    }
+    const queryString = searchParams.toString();
+    const url = queryString ? `/api/features/?${queryString}` : '/api/features/';
+    return this.client.get(url);
+  }
+
+  async getFeature(id: string): Promise<AxiosResponse<Feature>> {
+    return this.client.get(`/api/features/${id}/`);
+  }
+
+  async createFeature(data: CreateFeatureRequest): Promise<AxiosResponse<Feature>> {
+    return this.client.post('/api/features/', data);
+  }
+
+  async updateFeature(id: string, data: UpdateFeatureRequest): Promise<AxiosResponse<Feature>> {
+    return this.client.patch(`/api/features/${id}/`, data);
+  }
+
+  async deleteFeature(id: string): Promise<void> {
+    await this.client.delete(`/api/features/${id}/`);
+  }
+
+  async advanceFeatureStatus(id: string): Promise<AxiosResponse<{ detail: string; feature: Feature }>> {
+    return this.client.post(`/api/features/${id}/advance_status/`);
+  }
+
+  async revertFeatureStatus(id: string): Promise<AxiosResponse<{ detail: string; feature: Feature }>> {
+    return this.client.post(`/api/features/${id}/revert_status/`);
+  }
+
+  async setFeatureStatus(id: string, status: string): Promise<AxiosResponse<{ detail: string; feature: Feature }>> {
+    return this.client.post(`/api/features/${id}/set_status/`, { status });
+  }
+
+  async getFeatureHierarchy(id: string): Promise<AxiosResponse<{
+    ancestors: Array<{ id: string; title: string; status: string; hierarchy_level: number }>;
+    current: { id: string; title: string; status: string; hierarchy_level: number };
+    descendants: Array<{ id: string; title: string; status: string; hierarchy_level: number; children: any[] }>;
+  }>> {
+    return this.client.get(`/api/features/${id}/hierarchy/`);
+  }
+
+  async getFeaturesByProject(projectId: string): Promise<AxiosResponse<FeatureListItem[]>> {
+    return this.client.get(`/api/features/by_project/?project_id=${projectId}`);
+  }
+
+  async getMyFeatureAssignments(): Promise<AxiosResponse<FeatureListItem[]>> {
+    return this.client.get('/api/features/my_assignments/');
+  }
+
+  async getFeatureDashboardStats(): Promise<AxiosResponse<{
+    my_assignments_count: number;
+    my_reports_count: number;
+    overdue_count: number;
+    status_distribution: Array<{ status: string; count: number }>;
+    priority_distribution: Array<{ priority: string; count: number }>;
+  }>> {
+    return this.client.get('/api/features/dashboard_stats/');
+  }
+
+  // Feature Comments
+  async getFeatureComments(featureId: string): Promise<AxiosResponse<{ results: FeatureComment[] }>> {
+    return this.client.get(`/api/features/${featureId}/comments/`);
+  }
+
+  async createFeatureComment(featureId: string, content: string): Promise<AxiosResponse<FeatureComment>> {
+    return this.client.post(`/api/features/${featureId}/comments/`, { content });
+  }
+
+  async updateFeatureComment(featureId: string, commentId: string, content: string): Promise<AxiosResponse<FeatureComment>> {
+    return this.client.patch(`/api/features/${featureId}/comments/${commentId}/`, { content });
+  }
+
+  async deleteFeatureComment(featureId: string, commentId: string): Promise<void> {
+    await this.client.delete(`/api/features/${featureId}/comments/${commentId}/`);
+  }
+
+  // Feature Attachments
+  async getFeatureAttachments(featureId: string): Promise<AxiosResponse<{ results: FeatureAttachment[] }>> {
+    return this.client.get(`/api/features/${featureId}/attachments/`);
+  }
+
+  async uploadFeatureAttachment(featureId: string, file: File): Promise<AxiosResponse<FeatureAttachment>> {
+    const formData = new FormData();
+    formData.append('file', file);
+    return this.client.post(`/api/features/${featureId}/attachments/`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+  }
+
+  async deleteFeatureAttachment(featureId: string, attachmentId: string): Promise<void> {
+    await this.client.delete(`/api/features/${featureId}/attachments/${attachmentId}/`);
   }
 }
 

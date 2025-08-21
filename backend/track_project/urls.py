@@ -23,10 +23,10 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/auth/", include('accounts.urls')),
     path("api/", include('projects.urls')),
+    path("api/", include('features.urls')),
 ]
 
 # Serve static and media files in development
 if settings.DEBUG:
     urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
-    if hasattr(settings, 'MEDIA_URL'):
-        urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
