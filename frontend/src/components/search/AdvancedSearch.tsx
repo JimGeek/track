@@ -1,7 +1,9 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, memo, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { FeatureListItem, ProjectListItem, User } from '../../services/api';
 import apiService from '../../services/api';
+import { useDebounce } from '../../hooks/useDebounce';
+import { useResponsive } from '../../hooks/useResponsive';
 
 interface SearchFilters {
   query: string;
@@ -29,11 +31,12 @@ interface AdvancedSearchProps {
   compact?: boolean;
 }
 
-const AdvancedSearch: React.FC<AdvancedSearchProps> = ({
+const AdvancedSearch: React.FC<AdvancedSearchProps> = memo(({
   onResultsChange,
   defaultFilters = {},
   compact = false
 }) => {
+  const { isMobile, isTablet } = useResponsive();
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [filters, setFilters] = useState<SearchFilters>({
     query: '',
@@ -73,14 +76,13 @@ const AdvancedSearch: React.FC<AdvancedSearchProps> = ({
   const projects = projectsData?.data?.results || [];
   const users = usersData?.data?.results || [];
 
+  // Debounced filters
+  const debouncedFilters = useDebounce(filters, 300);
+
   // Debounced search
   useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      performSearch();
-    }, 300);
-
-    return () => clearTimeout(timeoutId);
-  }, [filters]);
+    performSearch();
+  }, [debouncedFilters]);
 
   const performSearch = async () => {
     setIsSearching(true);
@@ -89,15 +91,15 @@ const AdvancedSearch: React.FC<AdvancedSearchProps> = ({
       // Build search parameters
       const searchParams: any = {};
       
-      if (filters.query) searchParams.search = filters.query;
-      if (filters.project) searchParams.project = filters.project;
-      if (filters.status) searchParams.status = filters.status;
-      if (filters.priority) searchParams.priority = filters.priority;
-      if (filters.assignee) searchParams.assignee = filters.assignee;
-      if (filters.reporter) searchParams.reporter = filters.reporter;
+      if (debouncedFilters.query) searchParams.search = debouncedFilters.query;
+      if (debouncedFilters.project) searchParams.project = debouncedFilters.project;
+      if (debouncedFilters.status) searchParams.status = debouncedFilters.status;
+      if (debouncedFilters.priority) searchParams.priority = debouncedFilters.priority;
+      if (debouncedFilters.assignee) searchParams.assignee = debouncedFilters.assignee;
+      if (debouncedFilters.reporter) searchParams.reporter = debouncedFilters.reporter;
       
       // Add ordering for better relevance
-      if (filters.query) {
+      if (debouncedFilters.query) {
         searchParams.ordering = '-created_at'; // Most recent first when searching
       }
 
@@ -107,41 +109,41 @@ const AdvancedSearch: React.FC<AdvancedSearchProps> = ({
       // Apply client-side filters that can't be handled by the API
       results = results.filter(feature => {
         // Date filters
-        if (filters.dateCreatedStart) {
+        if (debouncedFilters.dateCreatedStart) {
           const createdDate = new Date(feature.created_at);
-          const startDate = new Date(filters.dateCreatedStart);
+          const startDate = new Date(debouncedFilters.dateCreatedStart);
           if (createdDate < startDate) return false;
         }
         
-        if (filters.dateCreatedEnd) {
+        if (debouncedFilters.dateCreatedEnd) {
           const createdDate = new Date(feature.created_at);
-          const endDate = new Date(filters.dateCreatedEnd);
+          const endDate = new Date(debouncedFilters.dateCreatedEnd);
           endDate.setHours(23, 59, 59); // End of day
           if (createdDate > endDate) return false;
         }
         
-        if (filters.dueDateStart && feature.due_date) {
+        if (debouncedFilters.dueDateStart && feature.due_date) {
           const dueDate = new Date(feature.due_date);
-          const startDate = new Date(filters.dueDateStart);
+          const startDate = new Date(debouncedFilters.dueDateStart);
           if (dueDate < startDate) return false;
         }
         
-        if (filters.dueDateEnd && feature.due_date) {
+        if (debouncedFilters.dueDateEnd && feature.due_date) {
           const dueDate = new Date(feature.due_date);
-          const endDate = new Date(filters.dueDateEnd);
+          const endDate = new Date(debouncedFilters.dueDateEnd);
           if (dueDate > endDate) return false;
         }
 
         // Boolean filters
-        if (filters.isOverdue && !feature.is_overdue) return false;
-        if (filters.isCompleted && !feature.is_completed) return false;
-        if (filters.hasSubFeatures && feature.sub_features_count === 0) return false;
-        if (filters.hasComments && feature.comments_count === 0) return false;
-        if (filters.hasAttachments && feature.attachments_count === 0) return false;
+        if (debouncedFilters.isOverdue && !feature.is_overdue) return false;
+        if (debouncedFilters.isCompleted && !feature.is_completed) return false;
+        if (debouncedFilters.hasSubFeatures && feature.sub_features_count === 0) return false;
+        if (debouncedFilters.hasComments && feature.comments_count === 0) return false;
+        if (debouncedFilters.hasAttachments && feature.attachments_count === 0) return false;
 
         // Estimated hours range
-        if (filters.estimatedHoursMin !== null && (feature.estimated_hours || 0) < filters.estimatedHoursMin) return false;
-        if (filters.estimatedHoursMax !== null && (feature.estimated_hours || 0) > filters.estimatedHoursMax) return false;
+        if (debouncedFilters.estimatedHoursMin !== null && (feature.estimated_hours || 0) < debouncedFilters.estimatedHoursMin) return false;
+        if (debouncedFilters.estimatedHoursMax !== null && (feature.estimated_hours || 0) > debouncedFilters.estimatedHoursMax) return false;
 
         return true;
       });
@@ -157,11 +159,11 @@ const AdvancedSearch: React.FC<AdvancedSearchProps> = ({
     }
   };
 
-  const updateFilter = (key: keyof SearchFilters, value: any) => {
+  const updateFilter = useCallback((key: keyof SearchFilters, value: any) => {
     setFilters(prev => ({ ...prev, [key]: value }));
-  };
+  }, []);
 
-  const clearFilters = () => {
+  const clearFilters = useCallback(() => {
     setFilters({
       query: '',
       project: '',
@@ -181,7 +183,7 @@ const AdvancedSearch: React.FC<AdvancedSearchProps> = ({
       estimatedHoursMin: null,
       estimatedHoursMax: null,
     });
-  };
+  }, []);
 
   const hasActiveFilters = useMemo(() => {
     return Object.entries(filters).some(([key, value]) => {
@@ -203,7 +205,7 @@ const AdvancedSearch: React.FC<AdvancedSearchProps> = ({
           <input
             type="text"
             placeholder="Search features..."
-            className="block w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500"
+            className={`block w-full pl-10 pr-12 ${isMobile ? 'py-2 text-sm' : 'py-3'} border border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500`}
             value={filters.query}
             onChange={(e) => updateFilter('query', e.target.value)}
           />
@@ -214,7 +216,7 @@ const AdvancedSearch: React.FC<AdvancedSearchProps> = ({
           )}
         </div>
         
-        <div className="mt-2 flex items-center justify-between">
+        <div className={`mt-2 ${isMobile ? 'space-y-2' : 'flex items-center justify-between'}`}>
           <button
             onClick={() => setShowAdvanced(!showAdvanced)}
             className="text-sm text-primary-600 hover:text-primary-800 flex items-center gap-1"
@@ -230,7 +232,7 @@ const AdvancedSearch: React.FC<AdvancedSearchProps> = ({
             Advanced Search
           </button>
           
-          <div className="flex items-center gap-4 text-sm text-gray-500">
+          <div className={`flex items-center ${isMobile ? 'justify-between' : 'gap-4'} text-sm text-gray-500`}>
             {hasActiveFilters && (
               <button
                 onClick={clearFilters}
@@ -246,8 +248,8 @@ const AdvancedSearch: React.FC<AdvancedSearchProps> = ({
 
       {/* Advanced Filters */}
       {showAdvanced && (
-        <div className="bg-gray-50 rounded-lg p-4 space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className={`bg-gray-50 rounded-lg ${isMobile ? 'p-3' : 'p-4'} space-y-4`}>
+          <div className={`grid ${isMobile ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3'} gap-4`}>
             {/* Project Filter */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Project</label>
@@ -396,7 +398,7 @@ const AdvancedSearch: React.FC<AdvancedSearchProps> = ({
           {/* Boolean Filters */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Additional Filters</label>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+            <div className={`grid ${isMobile ? 'grid-cols-1' : 'grid-cols-2 md:grid-cols-3 lg:grid-cols-5'} gap-3`}>
               {[
                 { key: 'isOverdue', label: 'Overdue' },
                 { key: 'isCompleted', label: 'Completed' },
@@ -420,6 +422,8 @@ const AdvancedSearch: React.FC<AdvancedSearchProps> = ({
       )}
     </div>
   );
-};
+});
+
+AdvancedSearch.displayName = 'AdvancedSearch';
 
 export default AdvancedSearch;

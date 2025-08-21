@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { memo, useMemo, useCallback } from 'react';
 import { FeatureListItem } from '../../services/api';
+import { useResponsive } from '../../hooks/useResponsive';
 
 interface FeatureCardProps {
   feature: FeatureListItem;
@@ -9,13 +10,15 @@ interface FeatureCardProps {
   onViewDetails: (feature: FeatureListItem) => void;
 }
 
-const FeatureCard: React.FC<FeatureCardProps> = ({
+const FeatureCard: React.FC<FeatureCardProps> = memo(({
   feature,
   onEdit,
   onDelete,
   onStatusChange,
   onViewDetails,
 }) => {
+  const { isMobile } = useResponsive();
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'idea':
@@ -52,19 +55,43 @@ const FeatureCard: React.FC<FeatureCardProps> = ({
     return new Date(dateString).toLocaleDateString();
   };
 
-  const getIndentStyle = () => {
-    return {
-      paddingLeft: `${feature.hierarchy_level * 16 + 24}px`,
-    };
-  };
+  const getIndentStyle = useMemo(() => ({
+    paddingLeft: `${feature.hierarchy_level * 16 + 24}px`,
+  }), [feature.hierarchy_level]);
+
+  const handleEdit = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    onEdit(feature);
+  }, [onEdit, feature]);
+
+  const handleDelete = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    onDelete(feature);
+  }, [onDelete, feature]);
+
+  const handleStatusChange = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    onStatusChange(feature);
+  }, [onStatusChange, feature]);
+
+  const handleViewDetails = useCallback(() => {
+    onViewDetails(feature);
+  }, [onViewDetails, feature]);
+
+  const statusColor = useMemo(() => getStatusColor(feature.status), [feature.status]);
+  const priorityColor = useMemo(() => getPriorityColor(feature.priority), [feature.priority]);
+  const formattedDueDate = useMemo(() => 
+    feature.due_date ? formatDate(feature.due_date) : null,
+    [feature.due_date]
+  );
 
   return (
     <div 
       className="bg-white rounded-lg shadow-sm border hover:shadow-md transition-shadow cursor-pointer"
-      style={feature.hierarchy_level > 0 ? getIndentStyle() : {}}
+      style={feature.hierarchy_level > 0 ? getIndentStyle : {}}
     >
-      <div className="p-4">
-        <div className="flex items-start justify-between mb-3">
+      <div className={`${isMobile ? 'p-3' : 'p-4'}`}>
+        <div className={`${isMobile ? 'space-y-3' : 'flex items-start justify-between mb-3'}`}>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
               {feature.hierarchy_level > 0 && (
@@ -73,8 +100,8 @@ const FeatureCard: React.FC<FeatureCardProps> = ({
                 </span>
               )}
               <h3 
-                className="text-sm font-medium text-gray-900 hover:text-primary-600 cursor-pointer"
-                onClick={() => onViewDetails(feature)}
+                className={`${isMobile ? 'text-sm' : 'text-sm'} font-medium text-gray-900 hover:text-primary-600 cursor-pointer`}
+                onClick={handleViewDetails}
               >
                 {feature.title}
               </h3>
@@ -91,33 +118,29 @@ const FeatureCard: React.FC<FeatureCardProps> = ({
             </p>
           </div>
           
-          <div className="flex items-center gap-2 ml-4">
+          <div className={`flex items-center gap-2 ${isMobile ? 'mt-2 justify-start' : 'ml-4'}`}>
             <span
-              className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(
-                feature.status
-              )}`}
+              className={`px-2 py-1 rounded-full text-xs font-medium ${statusColor}`}
             >
               {feature.status.charAt(0).toUpperCase() + feature.status.slice(1)}
             </span>
             <span
-              className={`px-2 py-1 rounded-full text-xs font-medium ${getPriorityColor(
-                feature.priority
-              )}`}
+              className={`px-2 py-1 rounded-full text-xs font-medium ${priorityColor}`}
             >
               {feature.priority.charAt(0).toUpperCase() + feature.priority.slice(1)}
             </span>
           </div>
         </div>
 
-        <div className="flex items-center justify-between text-xs text-gray-500 mb-3">
-          <div className="flex items-center gap-4">
+        <div className={`${isMobile ? 'space-y-2' : 'flex items-center justify-between'} text-xs text-gray-500 mb-3`}>
+          <div className={`${isMobile ? 'space-y-1' : 'flex items-center gap-4'}`}>
             {feature.assignee && (
               <div>
-                <span className="font-medium">Assignee:</span> {feature.assignee.first_name} {feature.assignee.last_name}
+                <span className="font-medium">Assignee:</span> {isMobile ? feature.assignee.first_name : `${feature.assignee.first_name} ${feature.assignee.last_name}`}
               </div>
             )}
             <div>
-              <span className="font-medium">Reporter:</span> {feature.reporter.first_name} {feature.reporter.last_name}
+              <span className="font-medium">Reporter:</span> {isMobile ? feature.reporter.first_name : `${feature.reporter.first_name} ${feature.reporter.last_name}`}
             </div>
             {feature.estimated_hours && (
               <div>
@@ -127,8 +150,8 @@ const FeatureCard: React.FC<FeatureCardProps> = ({
           </div>
           
           {feature.due_date && (
-            <div className={feature.is_overdue ? 'text-red-600 font-medium' : ''}>
-              Due: {formatDate(feature.due_date)}
+            <div className={`${feature.is_overdue ? 'text-red-600 font-medium' : ''} ${isMobile ? 'mt-1' : ''}`}>
+              Due: {formattedDueDate}
               {feature.is_overdue && ' (Overdue)'}
             </div>
           )}
@@ -162,31 +185,22 @@ const FeatureCard: React.FC<FeatureCardProps> = ({
           </div>
 
           {feature.can_edit && (
-            <div className="flex gap-2">
+            <div className={`flex ${isMobile ? 'flex-col gap-1 w-full mt-2' : 'gap-2'}`}>
               <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onStatusChange(feature);
-                }}
-                className="text-blue-600 hover:text-blue-800 text-xs font-medium"
+                onClick={handleStatusChange}
+                className={`text-blue-600 hover:text-blue-800 text-xs font-medium ${isMobile ? 'text-left' : ''}`}
               >
-                Status
+                {isMobile ? 'Change Status' : 'Status'}
               </button>
               <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onEdit(feature);
-                }}
-                className="text-primary-600 hover:text-primary-800 text-xs font-medium"
+                onClick={handleEdit}
+                className={`text-primary-600 hover:text-primary-800 text-xs font-medium ${isMobile ? 'text-left' : ''}`}
               >
                 Edit
               </button>
               <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onDelete(feature);
-                }}
-                className="text-red-600 hover:text-red-800 text-xs font-medium"
+                onClick={handleDelete}
+                className={`text-red-600 hover:text-red-800 text-xs font-medium ${isMobile ? 'text-left' : ''}`}
               >
                 Delete
               </button>
@@ -196,6 +210,8 @@ const FeatureCard: React.FC<FeatureCardProps> = ({
       </div>
     </div>
   );
-};
+});
+
+FeatureCard.displayName = 'FeatureCard';
 
 export default FeatureCard;

@@ -1,6 +1,10 @@
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import apiService from '../../services/api';
+import AnimatedCounter from '../ui/AnimatedCounter';
+import ProgressBar from '../ui/ProgressBar';
+import FadeTransition from '../ui/FadeTransition';
+import { SkeletonCard } from '../ui/Skeleton';
 
 interface AnalyticsCardProps {
   title: string;
@@ -11,23 +15,32 @@ interface AnalyticsCardProps {
 }
 
 const AnalyticsCard: React.FC<AnalyticsCardProps> = ({ title, value, change, icon, color }) => {
+  const numericValue = typeof value === 'number' ? value : parseFloat(value.toString()) || 0;
+  
   return (
-    <div className="bg-white rounded-lg shadow-sm border p-6">
+    <FadeTransition show={true} className="bg-white rounded-lg shadow-sm border p-6 hover:shadow-md transition-shadow duration-200">
       <div className="flex items-center justify-between">
         <div>
           <p className="text-sm font-medium text-gray-600">{title}</p>
-          <p className="text-2xl font-semibold text-gray-900 mt-2">{value}</p>
+          <div className="text-2xl font-semibold text-gray-900 mt-2">
+            {typeof value === 'number' ? (
+              <AnimatedCounter value={numericValue} duration={1500} />
+            ) : (
+              value
+            )}
+          </div>
           {change !== undefined && (
             <p className={`text-sm mt-2 ${change >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-              {change >= 0 ? '+' : ''}{change}% from last month
+              {change >= 0 ? '+' : ''}
+              <AnimatedCounter value={Math.abs(change)} decimals={1} />% from last month
             </p>
           )}
         </div>
-        <div className={`p-3 rounded-full ${color}`}>
+        <div className={`p-3 rounded-full ${color} transform hover:scale-110 transition-transform duration-200`}>
           {icon}
         </div>
       </div>
-    </div>
+    </FadeTransition>
   );
 };
 
@@ -47,7 +60,7 @@ const SimpleBarChart: React.FC<SimpleBarChartProps> = ({ data, title, height = 2
   const maxValue = Math.max(...data.data);
   
   return (
-    <div className="bg-white rounded-lg shadow-sm border p-6">
+    <FadeTransition show={true} className="bg-white rounded-lg shadow-sm border p-6 hover:shadow-md transition-shadow duration-200">
       <h3 className="text-lg font-medium text-gray-900 mb-4">{title}</h3>
       <div className="space-y-3" style={{ height }}>
         {data.labels.map((label, index) => {
@@ -59,17 +72,17 @@ const SimpleBarChart: React.FC<SimpleBarChartProps> = ({ data, title, height = 2
             <div key={label} className="flex items-center gap-3">
               <div className="w-20 text-sm text-gray-600 flex-shrink-0">{label}</div>
               <div className="flex-1">
-                <div className="w-full bg-gray-200 rounded-full h-6 relative">
-                  <div
-                    className="h-6 rounded-full flex items-center justify-end pr-2 transition-all duration-500"
-                    style={{ 
-                      width: `${Math.max(percentage, 5)}%`,
-                      backgroundColor: color 
-                    }}
-                  >
-                    <span className="text-xs font-medium text-white">{value}</span>
-                  </div>
-                </div>
+                <ProgressBar
+                  value={value}
+                  max={maxValue}
+                  height="md"
+                  animated={true}
+                  showLabel={false}
+                  className="w-full"
+                />
+              </div>
+              <div className="w-12 text-sm font-medium text-gray-900 text-right">
+                <AnimatedCounter value={value} duration={1000} />
               </div>
             </div>
           );
@@ -287,7 +300,7 @@ const ProjectAnalytics: React.FC<ProjectAnalyticsProps> = ({ projectId }) => {
             <div className="text-sm text-gray-600">Active Projects</div>
           </div>
         </div>
-      </div>
+      </FadeTransition>
     </div>
   );
 };

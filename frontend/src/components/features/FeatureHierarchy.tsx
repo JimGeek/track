@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, memo, useCallback } from 'react';
 import { FeatureListItem } from '../../services/api';
 
 interface FeatureHierarchyProps {
@@ -12,7 +12,7 @@ interface FeatureTreeNode extends FeatureListItem {
   children: FeatureTreeNode[];
 }
 
-const FeatureHierarchy: React.FC<FeatureHierarchyProps> = ({
+const FeatureHierarchy: React.FC<FeatureHierarchyProps> = memo(({
   features,
   onFeatureClick,
   onCreateSubFeature,
@@ -56,7 +56,7 @@ const FeatureHierarchy: React.FC<FeatureHierarchyProps> = ({
     return rootNodes.sort((a, b) => a.order - b.order);
   };
 
-  const toggleExpanded = (nodeId: string) => {
+  const toggleExpanded = useCallback((nodeId: string) => {
     const newExpanded = new Set(expandedNodes);
     if (newExpanded.has(nodeId)) {
       newExpanded.delete(nodeId);
@@ -64,7 +64,7 @@ const FeatureHierarchy: React.FC<FeatureHierarchyProps> = ({
       newExpanded.add(nodeId);
     }
     setExpandedNodes(newExpanded);
-  };
+  }, [expandedNodes]);
 
   const getStatusColor = (status: string) => {
     const colors = {
@@ -230,7 +230,15 @@ const FeatureHierarchy: React.FC<FeatureHierarchyProps> = ({
     );
   };
 
-  const treeNodes = buildTree(features);
+  const treeNodes = useMemo(() => buildTree(features), [features]);
+
+  const expandAll = useCallback(() => {
+    setExpandedNodes(new Set(features.map(f => f.id)));
+  }, [features]);
+
+  const collapseAll = useCallback(() => {
+    setExpandedNodes(new Set());
+  }, []);
 
   if (features.length === 0) {
     return (
@@ -252,13 +260,13 @@ const FeatureHierarchy: React.FC<FeatureHierarchyProps> = ({
           <div className="flex items-center gap-4 text-sm text-gray-500">
             <span>{features.length} features total</span>
             <button
-              onClick={() => setExpandedNodes(new Set(features.map(f => f.id)))}
+              onClick={expandAll}
               className="text-primary-600 hover:text-primary-800"
             >
               Expand All
             </button>
             <button
-              onClick={() => setExpandedNodes(new Set())}
+              onClick={collapseAll}
               className="text-primary-600 hover:text-primary-800"
             >
               Collapse All
@@ -272,6 +280,8 @@ const FeatureHierarchy: React.FC<FeatureHierarchyProps> = ({
       </div>
     </div>
   );
-};
+});
+
+FeatureHierarchy.displayName = 'FeatureHierarchy';
 
 export default FeatureHierarchy;

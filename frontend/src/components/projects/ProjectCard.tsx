@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo, useMemo, useCallback } from 'react';
 import { ProjectListItem } from '../../services/api';
 
 interface ProjectCardProps {
@@ -8,7 +8,7 @@ interface ProjectCardProps {
   onArchive: (project: ProjectListItem) => void;
 }
 
-const ProjectCard: React.FC<ProjectCardProps> = ({
+const ProjectCard: React.FC<ProjectCardProps> = memo(({
   project,
   onEdit,
   onDelete,
@@ -33,6 +33,25 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
     return new Date(dateString).toLocaleDateString();
   };
 
+  const handleEdit = useCallback(() => {
+    onEdit(project);
+  }, [onEdit, project]);
+
+  const handleDelete = useCallback(() => {
+    onDelete(project);
+  }, [onDelete, project]);
+
+  const handleArchive = useCallback(() => {
+    onArchive(project);
+  }, [onArchive, project]);
+
+  const priorityColor = useMemo(() => getPriorityColor(project.priority), [project.priority]);
+  const formattedDeadline = useMemo(() => 
+    project.deadline ? formatDate(project.deadline) : null,
+    [project.deadline]
+  );
+  const formattedCreatedDate = useMemo(() => formatDate(project.created_at), [project.created_at]);
+
   return (
     <div className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
       <div className="flex justify-between items-start mb-4">
@@ -46,9 +65,7 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
         </div>
         
         <span
-          className={`px-2 py-1 rounded-full text-xs font-medium ${getPriorityColor(
-            project.priority
-          )}`}
+          className={`px-2 py-1 rounded-full text-xs font-medium ${priorityColor}`}
         >
           {project.priority.charAt(0).toUpperCase() + project.priority.slice(1)}
         </span>
@@ -82,7 +99,7 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
           <div className="col-span-2">
             <span className="block font-medium">Deadline</span>
             <span className={project.is_overdue ? 'text-red-600' : ''}>
-              {formatDate(project.deadline)}
+              {formattedDeadline}
               {project.is_overdue && ' (Overdue)'}
             </span>
           </div>
@@ -91,25 +108,25 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
 
       <div className="flex items-center justify-between pt-4 border-t border-gray-100">
         <div className="text-xs text-gray-500">
-          Created {formatDate(project.created_at)}
+          Created {formattedCreatedDate}
         </div>
         
         {project.can_edit && (
           <div className="flex space-x-2">
             <button
-              onClick={() => onEdit(project)}
+              onClick={handleEdit}
               className="text-primary-600 hover:text-primary-800 text-sm font-medium"
             >
               Edit
             </button>
             <button
-              onClick={() => onArchive(project)}
+              onClick={handleArchive}
               className="text-gray-600 hover:text-gray-800 text-sm font-medium"
             >
               {project.is_archived ? 'Unarchive' : 'Archive'}
             </button>
             <button
-              onClick={() => onDelete(project)}
+              onClick={handleDelete}
               className="text-red-600 hover:text-red-800 text-sm font-medium"
             >
               Delete
@@ -119,6 +136,8 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
       </div>
     </div>
   );
-};
+});
+
+ProjectCard.displayName = 'ProjectCard';
 
 export default ProjectCard;
