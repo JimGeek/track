@@ -32,7 +32,7 @@ export const createLazyComponent = <T extends ComponentType<any>>(
     </LazyLoad>
   ));
   
-  WrappedComponent.displayName = `Lazy(${(LazyComponent as any).displayName || (LazyComponent as any).name || 'Component'})`;
+  WrappedComponent.displayName = 'LazyComponent';
   
   return WrappedComponent;
 };

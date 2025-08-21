@@ -88,7 +88,7 @@ const SimpleBarChart: React.FC<SimpleBarChartProps> = ({ data, title, height = 2
           );
         })}
       </div>
-    </div>
+    </FadeTransition>
   );
 };
 
@@ -278,7 +278,7 @@ const ProjectAnalytics: React.FC<ProjectAnalyticsProps> = ({ projectId }) => {
       </div>
 
       {/* Team Performance */}
-      <div className="bg-white rounded-lg shadow-sm border p-6">
+      <FadeTransition show={true} className="bg-white rounded-lg shadow-sm border p-6">
         <h3 className="text-lg font-medium text-gray-900 mb-4">Team Performance</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="text-center">

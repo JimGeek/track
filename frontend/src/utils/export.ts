@@ -108,7 +108,7 @@ export const importFromCSV = (file: File): Promise<any[]> => {
         const data = lines.slice(1)
           .filter(line => line.trim())
           .map(line => {
-            const values = [];
+            const values: string[] = [];
             let current = '';
             let inQuotes = false;
             
