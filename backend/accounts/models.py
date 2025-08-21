@@ -1,6 +1,10 @@
+import secrets
+from datetime import timedelta
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.core.validators import validate_email
+from django.core.exceptions import ValidationError
 from django.db import models
+from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 
@@ -110,3 +114,117 @@ class CustomUser(AbstractUser):
         super().clean()
         # Normalize email to lowercase
         self.email = self.__class__.objects.normalize_email(self.email)
+
+
+class PasswordResetTokenManager(models.Manager):
+    """Manager for password reset tokens."""
+    
+    def create_token_for_user(self, user):
+        """Create a new password reset token for user."""
+        # Deactivate any existing tokens for this user
+        self.filter(user=user, is_used=False).update(is_used=True)
+        
+        # Generate secure token
+        token = secrets.token_urlsafe(32)
+        
+        # Create new token with 1 hour expiry
+        return self.create(
+            user=user,
+            token=token,
+            expires_at=timezone.now() + timedelta(hours=1)
+        )
+    
+    def get_valid_token(self, token):
+        """Get valid, unexpired token."""
+        try:
+            return self.get(
+                token=token,
+                is_used=False,
+                expires_at__gt=timezone.now()
+            )
+        except self.model.DoesNotExist:
+            return None
+
+
+class PasswordResetToken(models.Model):
+    """Model for password reset tokens."""
+    
+    user = models.ForeignKey(
+        'CustomUser',
+        on_delete=models.CASCADE,
+        related_name='password_reset_tokens',
+        help_text=_('User requesting password reset.')
+    )
+    token = models.CharField(
+        _('reset token'),
+        max_length=64,
+        unique=True,
+        help_text=_('Unique token for password reset.')
+    )
+    created_at = models.DateTimeField(
+        _('created at'),
+        auto_now_add=True,
+        help_text=_('When the token was created.')
+    )
+    expires_at = models.DateTimeField(
+        _('expires at'),
+        help_text=_('When the token expires.')
+    )
+    is_used = models.BooleanField(
+        _('is used'),
+        default=False,
+        help_text=_('Whether the token has been used.')
+    )
+    used_at = models.DateTimeField(
+        _('used at'),
+        blank=True,
+        null=True,
+        help_text=_('When the token was used.')
+    )
+    ip_address = models.GenericIPAddressField(
+        _('IP address'),
+        blank=True,
+        null=True,
+        help_text=_('IP address from which reset was requested.')
+    )
+    user_agent = models.TextField(
+        _('user agent'),
+        blank=True,
+        help_text=_('User agent string from reset request.')
+    )
+    
+    objects = PasswordResetTokenManager()
+    
+    class Meta:
+        verbose_name = _('Password Reset Token')
+        verbose_name_plural = _('Password Reset Tokens')
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['token']),
+            models.Index(fields=['user', 'is_used']),
+            models.Index(fields=['expires_at']),
+        ]
+    
+    def __str__(self):
+        """Return string representation."""
+        return f"Password reset token for {self.user.email}"
+    
+    def is_valid(self):
+        """Check if token is valid and not expired."""
+        return not self.is_used and self.expires_at > timezone.now()
+    
+    def mark_as_used(self, ip_address=None, user_agent=None):
+        """Mark token as used."""
+        self.is_used = True
+        self.used_at = timezone.now()
+        if ip_address:
+            self.ip_address = ip_address
+        if user_agent:
+            self.user_agent = user_agent
+        self.save()
+    
+    def clean(self):
+        """Validate token."""
+        super().clean()
+        if self.expires_at and self.created_at and self.expires_at <= self.created_at:
+            raise ValidationError(_('Token expiry must be after creation time.'))
