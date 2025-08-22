@@ -18,11 +18,11 @@ class FeatureAttachmentInline(admin.TabularInline):
 class FeatureAdmin(admin.ModelAdmin):
     list_display = [
         'title', 'project', 'parent', 'status', 'priority',
-        'assignee', 'reporter', 'due_date', 'progress_percentage', 'created_at'
+        'assignee', 'reporter', 'start_date', 'end_date', 'progress_percentage', 'created_at'
     ]
     list_filter = [
         'status', 'priority', 'project', 'assignee',
-        'due_date', 'created_at'
+        'start_date', 'end_date', 'created_at'
     ]
     search_fields = [
         'title', 'description', 'project__name',
@@ -42,7 +42,7 @@ class FeatureAdmin(admin.ModelAdmin):
             'fields': ('status', 'priority', 'assignee', 'reporter')
         }),
         ('Time Tracking', {
-            'fields': ('estimated_hours', 'actual_hours', 'due_date', 'completed_date')
+            'fields': ('estimated_hours', 'actual_hours', 'start_date', 'end_date', 'completed_date')
         }),
         ('Hierarchy & Progress', {
             'fields': ('order', 'hierarchy_level', 'full_path', 'progress_percentage'),

@@ -13,6 +13,17 @@ class UserBasicSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'email', 'first_name', 'last_name']
 
 
+class FeatureDependencySerializer(serializers.ModelSerializer):
+    """Simple serializer for feature dependencies to avoid circular references"""
+    assignee = UserBasicSerializer(read_only=True)
+    project_name = serializers.CharField(source='project.name', read_only=True)
+    parent_title = serializers.CharField(source='parent.title', read_only=True)
+
+    class Meta:
+        model = Feature
+        fields = ['id', 'title', 'status', 'priority', 'assignee', 'project_name', 'parent_title']
+
+
 class FeatureAttachmentSerializer(serializers.ModelSerializer):
     uploaded_by = UserBasicSerializer(read_only=True)
     file_size_display = serializers.ReadOnlyField()
@@ -70,16 +81,17 @@ class FeatureListSerializer(serializers.ModelSerializer):
     sub_features_count = serializers.SerializerMethodField()
     comments_count = serializers.SerializerMethodField()
     attachments_count = serializers.SerializerMethodField()
+    dependencies_count = serializers.SerializerMethodField()
 
     class Meta:
         model = Feature
         fields = [
             'id', 'title', 'description', 'status', 'priority',
             'assignee', 'reporter', 'project_name', 'parent_title',
-            'estimated_hours', 'actual_hours', 'due_date', 'completed_date',
+            'estimated_hours', 'actual_hours', 'due_date', 'start_date', 'end_date', 'completed_date',
             'created_at', 'updated_at', 'order',
             'is_overdue', 'is_completed', 'hierarchy_level', 'progress_percentage',
-            'can_edit', 'sub_features_count', 'comments_count', 'attachments_count'
+            'can_edit', 'sub_features_count', 'comments_count', 'attachments_count', 'dependencies_count'
         ]
 
     def get_can_edit(self, obj):
@@ -97,12 +109,16 @@ class FeatureListSerializer(serializers.ModelSerializer):
     def get_attachments_count(self, obj):
         return obj.attachments.count()
 
+    def get_dependencies_count(self, obj):
+        return obj.dependencies.count()
+
 
 class FeatureSerializer(serializers.ModelSerializer):
     assignee = UserBasicSerializer(read_only=True)
     reporter = UserBasicSerializer(read_only=True)
     project = serializers.PrimaryKeyRelatedField(queryset=Project.objects.all())
     parent = serializers.PrimaryKeyRelatedField(queryset=Feature.objects.all(), allow_null=True, required=False)
+    dependencies = serializers.PrimaryKeyRelatedField(queryset=Feature.objects.all(), many=True, required=False)
     
     assignee_email = serializers.EmailField(write_only=True, required=False, allow_null=True)
     
@@ -121,6 +137,7 @@ class FeatureSerializer(serializers.ModelSerializer):
     comments = FeatureCommentSerializer(many=True, read_only=True)
     attachments = FeatureAttachmentSerializer(many=True, read_only=True)
     sub_features = serializers.SerializerMethodField()
+    dependencies_detail = serializers.SerializerMethodField()
 
     class Meta:
         model = Feature
@@ -128,11 +145,11 @@ class FeatureSerializer(serializers.ModelSerializer):
             'id', 'project', 'parent', 'title', 'description',
             'status', 'priority', 'assignee', 'reporter',
             'assignee_email', 'estimated_hours', 'actual_hours',
-            'due_date', 'completed_date', 'created_at', 'updated_at', 'order',
-            'is_overdue', 'is_completed', 'hierarchy_level', 'full_path',
+            'due_date', 'start_date', 'end_date', 'completed_date', 'created_at', 'updated_at', 'order',
+            'dependencies', 'is_overdue', 'is_completed', 'hierarchy_level', 'full_path',
             'progress_percentage', 'can_edit', 'total_estimated_hours',
             'total_actual_hours', 'next_status', 'previous_status',
-            'comments', 'attachments', 'sub_features'
+            'comments', 'attachments', 'sub_features', 'dependencies_detail'
         ]
         read_only_fields = ['id', 'reporter', 'created_at', 'updated_at', 'completed_date']
 
@@ -158,6 +175,10 @@ class FeatureSerializer(serializers.ModelSerializer):
         sub_features = obj.sub_features.all()
         return FeatureListSerializer(sub_features, many=True, context=self.context).data
 
+    def get_dependencies_detail(self, obj):
+        dependencies = obj.dependencies.all()
+        return FeatureDependencySerializer(dependencies, many=True, context=self.context).data
+
     def validate(self, data):
         # Validate that parent belongs to the same project
         if data.get('parent') and data.get('project'):
@@ -165,6 +186,38 @@ class FeatureSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     "Parent feature must belong to the same project."
                 )
+        
+        # Validate dependencies
+        dependencies = data.get('dependencies', [])
+        project = data.get('project')
+        parent = data.get('parent')
+        
+        for dependency in dependencies:
+            # Dependencies must be in the same project
+            if dependency.project != project:
+                raise serializers.ValidationError({
+                    'dependencies': f'Feature "{dependency.title}" is not in the same project.'
+                })
+            
+            # Sub-features can only depend on sub-features from the same parent
+            if parent:
+                if not dependency.parent or dependency.parent != parent:
+                    raise serializers.ValidationError({
+                        'dependencies': f'Sub-feature "{dependency.title}" must have the same parent feature.'
+                    })
+            
+            # Features cannot depend on their own sub-features
+            if hasattr(self, 'instance') and self.instance:
+                if dependency.parent == self.instance:
+                    raise serializers.ValidationError({
+                        'dependencies': f'Feature cannot depend on its own sub-feature "{dependency.title}".'
+                    })
+                
+                # Sub-features cannot depend on their parent feature
+                if parent and dependency == parent:
+                    raise serializers.ValidationError({
+                        'dependencies': f'Sub-feature cannot depend on its parent feature "{dependency.title}".'
+                    })
         
         # Validate due date
         due_date = data.get('due_date')
@@ -174,6 +227,29 @@ class FeatureSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     {"due_date": "Due date cannot be in the past."}
                 )
+
+        # Validate start and end dates
+        start_date = data.get('start_date')
+        end_date = data.get('end_date')
+        
+        if start_date and end_date and start_date > end_date:
+            raise serializers.ValidationError(
+                {"end_date": "End date cannot be earlier than start date."}
+            )
+        
+        # Validate dates are not in the past
+        from django.utils import timezone
+        today = timezone.now().date()
+        
+        if start_date and start_date < today:
+            raise serializers.ValidationError(
+                {"start_date": "Start date cannot be in the past."}
+            )
+            
+        if end_date and end_date < today:
+            raise serializers.ValidationError(
+                {"end_date": "End date cannot be in the past."}
+            )
         
         return data
 
@@ -227,13 +303,14 @@ class FeatureSerializer(serializers.ModelSerializer):
 
 class CreateFeatureSerializer(serializers.ModelSerializer):
     assignee_email = serializers.EmailField(required=False, allow_null=True)
+    dependencies = serializers.PrimaryKeyRelatedField(queryset=Feature.objects.all(), many=True, required=False)
 
     class Meta:
         model = Feature
         fields = [
             'project', 'parent', 'title', 'description',
             'priority', 'assignee_email', 'estimated_hours',
-            'due_date', 'order'
+            'due_date', 'start_date', 'end_date', 'order', 'dependencies'
         ]
 
     def validate_title(self, value):
@@ -248,6 +325,7 @@ class CreateFeatureSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         assignee_email = validated_data.pop('assignee_email', None)
+        dependencies = validated_data.pop('dependencies', [])
         request = self.context.get('request')
         
         if request and request.user:
@@ -264,6 +342,11 @@ class CreateFeatureSerializer(serializers.ModelSerializer):
                 )
         
         feature = Feature.objects.create(**validated_data)
+        
+        # Set dependencies after creation
+        if dependencies:
+            feature.dependencies.set(dependencies)
+        
         return feature
 
     def to_representation(self, instance):

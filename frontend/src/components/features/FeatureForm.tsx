@@ -2,11 +2,21 @@ import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { CreateFeatureRequest, UpdateFeatureRequest, Feature } from '../../services/api';
 import apiService from '../../services/api';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../ui/dialog';
+import { Input } from '../ui/input';
+import { Label } from '../ui/label';
+import { Button } from '../ui/button';
+import { Checkbox } from '../ui/checkbox';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
+import { Badge } from '../ui/badge';
+import { Card, CardContent } from '../ui/card';
 
 interface FeatureFormProps {
   feature?: Feature;
   projectId?: string;
+  projectName?: string;
   parentId?: string;
+  parentName?: string;
   onSubmit: (data: any) => Promise<void>;
   onCancel: () => void;
   isSubmitting: boolean;
@@ -15,11 +25,27 @@ interface FeatureFormProps {
 const FeatureForm: React.FC<FeatureFormProps> = ({
   feature,
   projectId,
+  projectName,
   parentId,
+  parentName,
   onSubmit,
   onCancel,
   isSubmitting,
 }) => {
+  // Fetch projects for selection
+  const { data: projectsData } = useQuery({
+    queryKey: ['projects'],
+    queryFn: () => apiService.getProjects(),
+    enabled: !projectId && !feature,
+  });
+
+  // Fetch parent feature details to get project info if needed
+  const { data: parentFeatureData } = useQuery({
+    queryKey: ['feature', parentId],
+    queryFn: () => apiService.getFeature(parentId!),
+    enabled: !!parentId && !projectId,
+  });
+
   const [formData, setFormData] = useState({
     project: feature?.project || projectId || '',
     parent: feature?.parent || parentId || '',
@@ -28,17 +54,29 @@ const FeatureForm: React.FC<FeatureFormProps> = ({
     priority: feature?.priority || 'medium' as const,
     assignee_email: feature?.assignee?.email || '',
     estimated_hours: feature?.estimated_hours || '',
-    due_date: feature?.due_date || '',
+    start_date: feature?.start_date || '',
+    end_date: feature?.end_date || feature?.due_date || '', // due_date maps to end_date
     order: feature?.order || 0,
+    dependencies: feature?.dependencies || [],
   });
+
+  // Update project when parent feature data is loaded
+  React.useEffect(() => {
+    if (parentFeatureData?.data?.project && !projectId && !feature) {
+      setFormData(prev => ({
+        ...prev,
+        project: parentFeatureData.data.project,
+      }));
+    }
+  }, [parentFeatureData, projectId, feature]);
   
   const [errors, setErrors] = useState<Record<string, string[]>>({});
 
-  // Fetch projects for selection
-  const { data: projectsData } = useQuery({
-    queryKey: ['projects'],
-    queryFn: () => apiService.getProjects(),
-    enabled: !projectId && !feature,
+  // Fetch selected project details for date validation
+  const { data: selectedProjectData } = useQuery({
+    queryKey: ['project', formData.project],
+    queryFn: () => apiService.getProject(formData.project),
+    enabled: !!formData.project,
   });
 
   // Fetch potential parent features
@@ -48,8 +86,33 @@ const FeatureForm: React.FC<FeatureFormProps> = ({
     enabled: !!formData.project,
   });
 
+  // Fetch potential dependency features (exclude current feature and its sub-features)
+  const { data: dependencyFeaturesData } = useQuery({
+    queryKey: ['dependency-features', formData.project, formData.parent, feature?.id],
+    queryFn: () => apiService.getFeatures({ project: formData.project }),
+    enabled: !!formData.project,
+  });
+
   const projects = projectsData?.data?.results || [];
   const parentFeatures = featuresData?.data?.results || [];
+  
+  // Filter potential dependencies with flexible scope rules
+  const potentialDependencies = (dependencyFeaturesData?.data?.results || []).filter(f => {
+    // Exclude current feature
+    if (feature && f.id === feature.id) return false;
+    
+    // For simplicity and flexibility: all features in the same project can be dependencies
+    // This allows maximum flexibility in project planning
+    return true;
+  });
+  
+  // Find the selected project name for display
+  const selectedProject = projects.find(p => p.id === formData.project);
+  const selectedProjectName = projectName || selectedProject?.name || 'Loading...';
+  
+  // Find the selected parent feature name for display
+  const selectedParentFeature = parentFeatures.find(f => f.id === formData.parent);
+  const selectedParentFeatureName = parentName || selectedParentFeature?.title || parentFeatureData?.data?.title || 'Loading...';
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -59,11 +122,84 @@ const FeatureForm: React.FC<FeatureFormProps> = ({
         ? (value === '' ? '' : Number(value))
         : value,
     }));
+    
+    // Clear any existing errors for this field
+    if (errors[name]) {
+      setErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[name];
+        return newErrors;
+      });
+    }
+  };
+
+  const handleDependencyChange = (dependencyId: string, checked: boolean) => {
+    setFormData(prev => ({
+      ...prev,
+      dependencies: checked
+        ? [...prev.dependencies, dependencyId]
+        : prev.dependencies.filter(id => id !== dependencyId)
+    }));
+    
+    // Clear any existing errors for dependencies
+    if (errors.dependencies) {
+      setErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors.dependencies;
+        return newErrors;
+      });
+    }
+  };
+
+  // Validate dates against project boundaries
+  const validateDates = () => {
+    const validationErrors: Record<string, string[]> = {};
+    const project = selectedProjectData?.data;
+    
+    if (project) {
+      // Get project date boundaries
+      const projectStart = project.start_date || new Date(project.created_at).toISOString().split('T')[0];
+      const projectEnd = project.end_date || project.deadline;
+      
+      // Validate start_date
+      if (formData.start_date) {
+        if (formData.start_date < projectStart) {
+          validationErrors.start_date = [`Start date cannot be before project start date (${projectStart})`];
+        }
+        if (projectEnd && formData.start_date > projectEnd) {
+          validationErrors.start_date = [`Start date cannot be after project end date (${projectEnd})`];
+        }
+      }
+      
+      // Validate end_date
+      if (formData.end_date) {
+        if (formData.end_date < projectStart) {
+          validationErrors.end_date = [`End date cannot be before project start date (${projectStart})`];
+        }
+        if (projectEnd && formData.end_date > projectEnd) {
+          validationErrors.end_date = [`End date cannot be after project end date (${projectEnd})`];
+        }
+      }
+      
+      // Validate start_date vs end_date
+      if (formData.start_date && formData.end_date && formData.start_date > formData.end_date) {
+        validationErrors.end_date = ['End date cannot be earlier than start date'];
+      }
+    }
+    
+    return validationErrors;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrors({});
+
+    // Run client-side validation first
+    const validationErrors = validateDates();
+    if (Object.keys(validationErrors).length > 0) {
+      setErrors(validationErrors);
+      return;
+    }
 
     try {
       const submitData: CreateFeatureRequest | UpdateFeatureRequest = {
@@ -72,7 +208,9 @@ const FeatureForm: React.FC<FeatureFormProps> = ({
         parent: formData.parent || undefined,
         assignee_email: formData.assignee_email || undefined,
         estimated_hours: formData.estimated_hours ? Number(formData.estimated_hours) : undefined,
-        due_date: formData.due_date || undefined,
+        start_date: formData.start_date || undefined,
+        end_date: formData.end_date || undefined,
+        dependencies: formData.dependencies.length > 0 ? formData.dependencies : undefined,
       };
 
       // Remove empty strings
@@ -97,100 +235,83 @@ const FeatureForm: React.FC<FeatureFormProps> = ({
     return errors[field] ? errors[field][0] : '';
   };
 
-  const getPriorityIcon = (priority: string) => {
-    switch (priority) {
-      case 'critical': return '🚨';
-      case 'high': return '🔥';
-      case 'medium': return '⚡';
-      case 'low': return '🌱';
-      default: return '📌';
-    }
-  };
-
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'critical': return 'from-danger-500 to-danger-600 text-white';
-      case 'high': return 'from-warning-500 to-warning-600 text-white';
-      case 'medium': return 'from-yellow-500 to-yellow-600 text-white';
-      case 'low': return 'from-success-500 to-success-600 text-white';
-      default: return 'from-gray-500 to-gray-600 text-white';
-    }
-  };
-
-  const getStatusIcon = () => feature ? '✏️' : '⚡';
 
   return (
-    <div className="fixed inset-0 bg-gray-900/75 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in">
-      <div className="bg-white/95 backdrop-blur-lg rounded-3xl shadow-2xl w-full max-w-4xl max-h-[95vh] overflow-hidden border border-gray-200/60 animate-slide-up">
-        {/* Header */}
-        <div className="relative px-8 py-6 bg-gradient-to-r from-accent-50 to-accent-100/80 border-b border-accent-200/60">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <div className="w-12 h-12 bg-gradient-to-br from-accent-500 to-accent-600 rounded-2xl flex items-center justify-center shadow-large">
-                <span className="text-white text-2xl">{getStatusIcon()}</span>
-              </div>
-              <div>
-                <h3 className="text-2xl font-bold text-accent-800 tracking-tight">
-                  {feature ? 'Edit Feature' : 'Create New Feature'}
-                </h3>
-                <p className="text-accent-600 font-medium">
-                  {feature ? 'Update your feature details' : 'Build something amazing'}
-                </p>
-              </div>
-            </div>
-            <button
-              onClick={onCancel}
-              className="w-10 h-10 bg-white/80 hover:bg-white rounded-2xl flex items-center justify-center text-gray-400 hover:text-gray-600 transition-all duration-200 hover:scale-105 shadow-soft hover:shadow-medium"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-        </div>
+    <Dialog open={true} onOpenChange={onCancel}>
+      <DialogContent className="w-full max-w-4xl max-h-[95vh] overflow-hidden">
+        <DialogHeader>
+          <DialogTitle>
+            {feature ? 'Edit Feature' : parentId ? 'Create Sub-Feature' : 'Create New Feature'}
+          </DialogTitle>
+          <p className="text-sm text-muted-foreground">
+            {feature ? 'Update your feature details' : parentId ? 'Add a sub-feature to break down the work' : 'Build something amazing'}
+          </p>
+        </DialogHeader>
 
-        {/* Form */}
         <div className="overflow-y-auto max-h-[70vh]">
-          <form onSubmit={handleSubmit} className="px-8 py-6 space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-6">
             {errors.general && (
-              <div className="rounded-2xl bg-gradient-to-r from-danger-50 to-danger-100 p-4 border border-danger-200/60 shadow-soft">
-                <div className="flex items-center">
-                  <span className="text-xl mr-3">⚠️</span>
-                  <div className="text-sm font-medium text-danger-700">{errors.general[0]}</div>
-                </div>
+              <div className="bg-destructive/10 text-destructive border border-destructive/20 rounded-md p-3">
+                <div className="text-sm font-medium">{errors.general[0]}</div>
               </div>
+            )}
+
+            {/* Sub-feature context information */}
+            {parentId && !feature && (
+              <Card className="bg-primary/10 border-primary/20">
+                <CardContent className="p-3">
+                  <div className="text-sm font-medium mb-1 text-primary">Creating Sub-Feature</div>
+                  <div className="text-sm text-muted-foreground">
+                    This feature will be created as a sub-feature under the selected parent.
+                    {projectId && (
+                      <span className="block text-xs mt-1">
+                        Project and parent are pre-selected for you.
+                      </span>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
             )}
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Left Column */}
               <div className="space-y-6">
                 {/* Project Selection */}
-                {!projectId && !feature && (
+                {!feature && (
                   <div className="space-y-2">
-                    <label htmlFor="project" className="flex items-center text-sm font-bold text-gray-700 tracking-wide">
-                      <span className="text-lg mr-2">📁</span>
-                      Project *
-                    </label>
-                    <select
-                      name="project"
-                      id="project"
-                      required
-                      className={`w-full px-4 py-4 bg-gray-50/50 backdrop-blur-sm border ${
-                        getErrorMessage('project') ? 'border-danger-300 bg-danger-50/30' : 'border-gray-300/60'
-                      } rounded-2xl shadow-soft focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-300 transition-all duration-200 font-medium hover:shadow-medium`}
-                      value={formData.project}
-                      onChange={handleChange}
-                    >
-                      <option value="">Select Project</option>
-                      {projects.map((project) => (
-                        <option key={project.id} value={project.id}>
-                          {project.name}
-                        </option>
-                      ))}
-                    </select>
+                    <Label htmlFor="project">
+                      Project * {projectId && <span className="text-xs text-muted-foreground ml-2">(Pre-selected)</span>}
+                    </Label>
+                    {projectId ? (
+                      <div className="w-full px-3 py-2 bg-muted border border-border text-muted-foreground rounded-md">
+                        {selectedProjectName}
+                      </div>
+                    ) : (
+                      <Select 
+                        value={formData.project} 
+                        onValueChange={(value) => {
+                          setFormData(prev => ({ ...prev, project: value }));
+                          if (errors.project) {
+                            const newErrors = { ...errors };
+                            delete newErrors.project;
+                            setErrors(newErrors);
+                          }
+                        }}
+                      >
+                        <SelectTrigger className={getErrorMessage('project') ? 'border-destructive' : ''}>
+                          <SelectValue placeholder="Select Project" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {projects.map((project) => (
+                            <SelectItem key={project.id} value={project.id}>
+                              {project.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
                     {getErrorMessage('project') && (
-                      <p className="text-sm text-danger-600 font-medium flex items-center">
-                        <span className="mr-1">❌</span>
+                      <p className="text-sm text-destructive">
                         {getErrorMessage('project')}
                       </p>
                     )}
@@ -199,25 +320,21 @@ const FeatureForm: React.FC<FeatureFormProps> = ({
 
                 {/* Feature Title */}
                 <div className="space-y-2">
-                  <label htmlFor="title" className="flex items-center text-sm font-bold text-gray-700 tracking-wide">
-                    <span className="text-lg mr-2">⚡</span>
+                  <Label htmlFor="title">
                     Feature Title *
-                  </label>
-                  <input
+                  </Label>
+                  <Input
                     type="text"
                     name="title"
                     id="title"
                     required
-                    className={`w-full px-4 py-4 bg-gray-50/50 backdrop-blur-sm border ${
-                      getErrorMessage('title') ? 'border-danger-300 bg-danger-50/30' : 'border-gray-300/60'
-                    } rounded-2xl shadow-soft focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-300 transition-all duration-200 font-medium text-lg hover:shadow-medium`}
+                    className={getErrorMessage('title') ? 'border-destructive' : ''}
                     value={formData.title}
                     onChange={handleChange}
-                    placeholder="Enter your amazing feature title..."
+                    placeholder="Enter your feature title..."
                   />
                   {getErrorMessage('title') && (
-                    <p className="text-sm text-danger-600 font-medium flex items-center">
-                      <span className="mr-1">❌</span>
+                    <p className="text-sm text-destructive">
                       {getErrorMessage('title')}
                     </p>
                   )}
@@ -225,25 +342,23 @@ const FeatureForm: React.FC<FeatureFormProps> = ({
 
                 {/* Description */}
                 <div className="space-y-2">
-                  <label htmlFor="description" className="flex items-center text-sm font-bold text-gray-700 tracking-wide">
-                    <span className="text-lg mr-2">📝</span>
+                  <Label htmlFor="description">
                     Description *
-                  </label>
+                  </Label>
                   <textarea
                     name="description"
                     id="description"
-                    rows={5}
+                    rows={4}
                     required
-                    className={`w-full px-4 py-4 bg-gray-50/50 backdrop-blur-sm border ${
-                      getErrorMessage('description') ? 'border-danger-300 bg-danger-50/30' : 'border-gray-300/60'
-                    } rounded-2xl shadow-soft focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-300 transition-all duration-200 font-medium resize-none hover:shadow-medium`}
+                    className={`flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-none ${
+                      getErrorMessage('description') ? 'border-destructive' : ''
+                    }`}
                     value={formData.description}
                     onChange={handleChange}
-                    placeholder="Describe what this feature will do and why it matters..."
+                    placeholder="Describe what this feature will do..."
                   />
                   {getErrorMessage('description') && (
-                    <p className="text-sm text-danger-600 font-medium flex items-center">
-                      <span className="mr-1">❌</span>
+                    <p className="text-sm text-destructive">
                       {getErrorMessage('description')}
                     </p>
                   )}
@@ -251,31 +366,44 @@ const FeatureForm: React.FC<FeatureFormProps> = ({
 
                 {/* Parent Feature */}
                 <div className="space-y-2">
-                  <label htmlFor="parent" className="flex items-center text-sm font-bold text-gray-700 tracking-wide">
-                    <span className="text-lg mr-2">🌳</span>
-                    Parent Feature (Optional)
-                  </label>
-                  <select
-                    name="parent"
-                    id="parent"
-                    className={`w-full px-4 py-4 bg-gray-50/50 backdrop-blur-sm border ${
-                      getErrorMessage('parent') ? 'border-danger-300 bg-danger-50/30' : 'border-gray-300/60'
-                    } rounded-2xl shadow-soft focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-300 transition-all duration-200 font-medium hover:shadow-medium`}
-                    value={formData.parent}
-                    onChange={handleChange}
-                  >
-                    <option value="">🏠 No Parent (Root Feature)</option>
-                    {parentFeatures
-                      .filter(f => !feature || f.id !== feature.id)
-                      .map((parentFeature) => (
-                        <option key={parentFeature.id} value={parentFeature.id}>
-                          🔗 {parentFeature.full_path || parentFeature.title}
-                        </option>
-                      ))}
-                  </select>
+                  <Label htmlFor="parent">
+                    Parent Feature (Optional) {parentId && <span className="text-xs text-muted-foreground ml-2">(Pre-selected)</span>}
+                  </Label>
+                  {parentId ? (
+                    <div className="w-full px-3 py-2 bg-muted border border-border text-muted-foreground rounded-md">
+                      {selectedParentFeatureName}
+                    </div>
+                  ) : (
+                    <Select 
+                      value={formData.parent || 'none'} 
+                      onValueChange={(value) => {
+                        // Convert "none" back to empty string
+                        const parentValue = value === 'none' ? '' : value;
+                        setFormData(prev => ({ ...prev, parent: parentValue }));
+                        if (errors.parent) {
+                          const newErrors = { ...errors };
+                          delete newErrors.parent;
+                          setErrors(newErrors);
+                        }
+                      }}
+                    >
+                      <SelectTrigger className={getErrorMessage('parent') ? 'border-destructive' : ''}>
+                        <SelectValue placeholder="No Parent (Root Feature)" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">No Parent (Root Feature)</SelectItem>
+                        {parentFeatures
+                          .filter(f => !feature || f.id !== feature.id)
+                          .map((parentFeature) => (
+                            <SelectItem key={parentFeature.id} value={parentFeature.id}>
+                              {parentFeature.full_path || parentFeature.title}
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                  )}
                   {getErrorMessage('parent') && (
-                    <p className="text-sm text-danger-600 font-medium flex items-center">
-                      <span className="mr-1">❌</span>
+                    <p className="text-sm text-destructive">
                       {getErrorMessage('parent')}
                     </p>
                   )}
@@ -286,17 +414,14 @@ const FeatureForm: React.FC<FeatureFormProps> = ({
               <div className="space-y-6">
                 {/* Priority Selection */}
                 <div className="space-y-3">
-                  <label className="flex items-center text-sm font-bold text-gray-700 tracking-wide">
-                    <span className="text-lg mr-2">🎯</span>
+                  <Label>
                     Priority Level
-                  </label>
-                  <div className="grid grid-cols-2 gap-3">
+                  </Label>
+                  <div className="grid grid-cols-2 gap-2">
                     {['low', 'medium', 'high', 'critical'].map((priority) => (
                       <label
                         key={priority}
-                        className={`relative cursor-pointer group ${
-                          formData.priority === priority ? 'scale-105' : 'hover:scale-105'
-                        } transition-all duration-200`}
+                        className="relative cursor-pointer"
                       >
                         <input
                           type="radio"
@@ -307,21 +432,19 @@ const FeatureForm: React.FC<FeatureFormProps> = ({
                           className="sr-only"
                         />
                         <div
-                          className={`p-4 rounded-2xl border-2 text-center shadow-soft hover:shadow-medium transition-all duration-200 ${
+                          className={`p-3 border rounded-md text-center transition-colors ${
                             formData.priority === priority
-                              ? `bg-gradient-to-r ${getPriorityColor(priority)} border-transparent shadow-large`
-                              : 'bg-white border-gray-200/60 text-gray-700 hover:border-gray-300'
+                              ? 'bg-primary text-primary-foreground border-primary'
+                              : 'bg-background border-input hover:bg-muted'
                           }`}
                         >
-                          <div className="text-2xl mb-1">{getPriorityIcon(priority)}</div>
-                          <div className="font-bold text-sm tracking-wide capitalize">{priority}</div>
+                          <div className="text-sm font-medium capitalize">{priority}</div>
                         </div>
                       </label>
                     ))}
                   </div>
                   {getErrorMessage('priority') && (
-                    <p className="text-sm text-danger-600 font-medium flex items-center">
-                      <span className="mr-1">❌</span>
+                    <p className="text-sm text-destructive">
                       {getErrorMessage('priority')}
                     </p>
                   )}
@@ -329,105 +452,174 @@ const FeatureForm: React.FC<FeatureFormProps> = ({
 
                 {/* Assignee */}
                 <div className="space-y-2">
-                  <label htmlFor="assignee_email" className="flex items-center text-sm font-bold text-gray-700 tracking-wide">
-                    <span className="text-lg mr-2">👤</span>
+                  <Label htmlFor="assignee_email">
                     Assignee Email (Optional)
-                  </label>
-                  <input
+                  </Label>
+                  <Input
                     type="email"
                     name="assignee_email"
                     id="assignee_email"
-                    className={`w-full px-4 py-4 bg-gray-50/50 backdrop-blur-sm border ${
-                      getErrorMessage('assignee_email') ? 'border-danger-300 bg-danger-50/30' : 'border-gray-300/60'
-                    } rounded-2xl shadow-soft focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-300 transition-all duration-200 font-medium hover:shadow-medium`}
+                    className={getErrorMessage('assignee_email') ? 'border-destructive' : ''}
                     value={formData.assignee_email}
                     onChange={handleChange}
                     placeholder="developer@example.com"
                   />
                   {getErrorMessage('assignee_email') && (
-                    <p className="text-sm text-danger-600 font-medium flex items-center">
-                      <span className="mr-1">❌</span>
+                    <p className="text-sm text-destructive">
                       {getErrorMessage('assignee_email')}
                     </p>
                   )}
                 </div>
 
                 {/* Time & Date Section */}
-                <div className="bg-gradient-to-br from-info-50 to-info-100/80 p-6 rounded-2xl border border-info-200/60 space-y-4">
-                  <h4 className="flex items-center text-sm font-bold text-info-800 tracking-wide">
-                    <span className="text-lg mr-2">⏰</span>
-                    Time & Schedule
-                  </h4>
+                <Card className="bg-muted/50">
+                  <CardContent className="p-4 space-y-4">
+                    <h4 className="text-sm font-medium text-foreground">
+                      Time & Schedule
+                    </h4>
                   
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {/* Estimated Hours */}
-                    <div className="space-y-2">
-                      <label htmlFor="estimated_hours" className="flex items-center text-xs font-bold text-gray-700 tracking-wide">
-                        <span className="mr-1">⏱️</span>
+                    <div className="space-y-2 sm:col-span-2">
+                      <Label htmlFor="estimated_hours" className="text-xs">
                         Estimated Hours
-                      </label>
-                      <input
+                      </Label>
+                      <Input
                         type="number"
                         name="estimated_hours"
                         id="estimated_hours"
                         min="0"
-                        className={`w-full px-3 py-3 bg-white/80 backdrop-blur-sm border ${
-                          getErrorMessage('estimated_hours') ? 'border-danger-300' : 'border-info-200/60'
-                        } rounded-xl shadow-soft focus:outline-none focus:ring-2 focus:ring-info-500 focus:border-info-300 transition-all duration-200 font-medium text-center hover:shadow-medium`}
+                        className={getErrorMessage('estimated_hours') ? 'border-destructive' : ''}
                         value={formData.estimated_hours}
                         onChange={handleChange}
                         placeholder="0"
                       />
                       {getErrorMessage('estimated_hours') && (
-                        <p className="text-xs text-danger-600 font-medium">
+                        <p className="text-xs text-destructive">
                           {getErrorMessage('estimated_hours')}
                         </p>
                       )}
                     </div>
 
-                    {/* Due Date */}
+                    {/* Start Date */}
                     <div className="space-y-2">
-                      <label htmlFor="due_date" className="flex items-center text-xs font-bold text-gray-700 tracking-wide">
-                        <span className="mr-1">📅</span>
-                        Due Date
-                      </label>
-                      <input
+                      <Label htmlFor="start_date" className="text-xs">
+                        Start Date
+                      </Label>
+                      <Input
                         type="date"
-                        name="due_date"
-                        id="due_date"
-                        className={`w-full px-3 py-3 bg-white/80 backdrop-blur-sm border ${
-                          getErrorMessage('due_date') ? 'border-danger-300' : 'border-info-200/60'
-                        } rounded-xl shadow-soft focus:outline-none focus:ring-2 focus:ring-info-500 focus:border-info-300 transition-all duration-200 font-medium hover:shadow-medium`}
-                        value={formData.due_date}
+                        name="start_date"
+                        id="start_date"
+                        className={getErrorMessage('start_date') ? 'border-destructive' : ''}
+                        value={formData.start_date}
                         onChange={handleChange}
                       />
-                      {getErrorMessage('due_date') && (
-                        <p className="text-xs text-danger-600 font-medium">
-                          {getErrorMessage('due_date')}
+                      {getErrorMessage('start_date') && (
+                        <p className="text-xs text-destructive">
+                          {getErrorMessage('start_date')}
                         </p>
                       )}
                     </div>
+
+                    {/* End Date */}
+                    <div className="space-y-2">
+                      <Label htmlFor="end_date" className="text-xs">
+                        End Date
+                      </Label>
+                      <Input
+                        type="date"
+                        name="end_date"
+                        id="end_date"
+                        className={getErrorMessage('end_date') ? 'border-destructive' : ''}
+                        value={formData.end_date}
+                        onChange={handleChange}
+                      />
+                      {getErrorMessage('end_date') && (
+                        <p className="text-xs text-destructive">
+                          {getErrorMessage('end_date')}
+                        </p>
+                      )}
+                    </div>
+
                   </div>
-                </div>
+                  </CardContent>
+                </Card>
               </div>
+            </div>
+
+            {/* Dependencies Section */}
+            <div className="space-y-4">
+              <h4 className="text-sm font-medium text-foreground">
+                Dependencies
+              </h4>
+              <p className="text-xs text-muted-foreground">
+                Select other features in this project that this feature depends on. Dependencies help establish work order and project relationships.
+              </p>
+              
+              {potentialDependencies.length > 0 ? (
+                <div className="space-y-2 max-h-48 overflow-y-auto border border-input rounded-md p-3">
+                  {potentialDependencies.map((dependency) => (
+                    <label
+                      key={dependency.id}
+                      className="flex items-center space-x-3 cursor-pointer p-2 hover:bg-muted rounded-md transition-colors"
+                    >
+                      <Checkbox
+                        checked={formData.dependencies.includes(dependency.id)}
+                        onCheckedChange={(checked) => handleDependencyChange(dependency.id, checked as boolean)}
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center space-x-2">
+                          <span className="text-sm font-medium text-foreground truncate">
+                            {dependency.title}
+                          </span>
+                          <Badge variant={dependency.status === 'live' ? 'default' : 'secondary'} className="text-xs">
+                            {dependency.status}
+                          </Badge>
+                          <Badge variant={dependency.priority === 'critical' ? 'destructive' : 'outline'} className="text-xs">
+                            {dependency.priority}
+                          </Badge>
+                        </div>
+                        {dependency.assignee && (
+                          <p className="text-xs text-muted-foreground">
+                            Assigned to: {dependency.assignee.first_name} {dependency.assignee.last_name}
+                          </p>
+                        )}
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              ) : (
+                <div className="border border-dashed border-input rounded-md p-4 text-center">
+                  <p className="text-sm text-muted-foreground mb-2">
+                    No other features are available in this project.
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Create more features in this project to enable dependency relationships.
+                  </p>
+                </div>
+              )}
+              
+              {getErrorMessage('dependencies') && (
+                <p className="text-sm text-destructive">
+                  {getErrorMessage('dependencies')}
+                </p>
+              )}
             </div>
           </form>
         </div>
 
-        {/* Footer */}
-        <div className="px-8 py-6 bg-gray-50/50 border-t border-gray-200/60 flex justify-end space-x-4">
-          <button
+        <DialogFooter className="bg-muted/50">
+          <Button
             type="button"
+            variant="outline"
             onClick={onCancel}
-            className="px-6 py-3 text-sm font-bold text-gray-700 bg-white border border-gray-300/60 rounded-2xl hover:bg-gray-50 hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500 transition-all duration-200 shadow-soft hover:shadow-medium"
           >
             Cancel
-          </button>
-          <button
+          </Button>
+          <Button
             type="submit"
             onClick={handleSubmit}
             disabled={isSubmitting}
-            className="px-8 py-3 text-sm font-bold text-white bg-gradient-to-r from-accent-500 to-accent-600 hover:from-accent-600 hover:to-accent-700 border border-accent-400 rounded-2xl focus:outline-none focus:ring-2 focus:ring-accent-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-large hover:shadow-xl transform hover:scale-105 disabled:transform-none"
           >
             {isSubmitting ? (
               <div className="flex items-center">
@@ -435,17 +627,12 @@ const FeatureForm: React.FC<FeatureFormProps> = ({
                 Saving...
               </div>
             ) : (
-              <div className="flex items-center">
-                <span className="mr-2 text-base">
-                  {feature ? '✏️' : '⚡'}
-                </span>
-                {feature ? 'Update Feature' : 'Create Feature'}
-              </div>
+              feature ? 'Update Feature' : 'Create Feature'
             )}
-          </button>
-        </div>
-      </div>
-    </div>
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 };
 

@@ -1,33 +1,36 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
-import { Project, FeatureListItem } from '../services/api';
+import { useParams, Link } from 'react-router-dom';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { Project, FeatureListItem, CreateFeatureRequest } from '../services/api';
 import { apiService } from '../services/api';
-import { useResponsive } from '../hooks/useResponsive';
+import { enhanceFeaturesWithAggregatedProgress } from '../utils/featureProgress';
 import MainLayout from '../components/layout/MainLayout';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
-import ProjectHeader from '../components/projects/ProjectHeader';
 import ProjectOverview from '../components/projects/ProjectOverview';
 import FeatureCard from '../components/features/FeatureCard';
 import FeatureDetailModal from '../components/features/FeatureDetailModal';
-import ShrinkingScrollContainer from '../components/common/ShrinkingScrollContainer';
+import FeatureForm from '../components/features/FeatureForm';
 import FeatureKanbanView from '../components/features/FeatureKanbanView';
 import FeatureGanttView from '../components/features/FeatureGanttView';
+import { Button } from '../components/ui/button';
+import { Badge } from '../components/ui/badge';
+import { Card, CardContent, CardHeader } from '../components/ui/card';
 
 type ViewMode = 'list' | 'kanban' | 'gantt';
 
 const ProjectDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
-  const { isMobile } = useResponsive();
+  const queryClient = useQueryClient();
   
   const [project, setProject] = useState<Project | null>(null);
   const [features, setFeatures] = useState<FeatureListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('list');
-  const [selectedFeature, setSelectedFeature] = useState<FeatureListItem | null>(null);
   const [detailModalFeature, setDetailModalFeature] = useState<FeatureListItem | null>(null);
   const [activeTab, setActiveTab] = useState<'features' | 'overview' | 'team' | 'settings'>('features');
+  const [creatingSubFeature, setCreatingSubFeature] = useState<string | null>(null);
+  const [showCreateForm, setShowCreateForm] = useState(false);
 
   useEffect(() => {
     const fetchProjectData = async () => {
@@ -37,7 +40,7 @@ const ProjectDetails: React.FC = () => {
       try {
         const [projectResponse, featuresResponse] = await Promise.all([
           apiService.getProject(id),
-          apiService.getFeatures({ project: id })
+          apiService.getFeatures({ project: id }) // Fetch all features for hierarchy support
         ]);
         
         setProject(projectResponse.data);
@@ -56,13 +59,15 @@ const ProjectDetails: React.FC = () => {
   const projectMetrics = useMemo(() => {
     if (!features.length) return null;
 
-    const totalFeatures = features.length;
-    const completedFeatures = features.filter(f => f.status === 'live').length;
-    const inProgressFeatures = features.filter(f => ['development', 'testing'].includes(f.status)).length;
-    const overdueFeatures = features.filter(f => f.is_overdue).length;
+    // Only count root features for project metrics, not sub-features
+    const rootFeatures = features.filter(f => !f.parent);
+    const totalFeatures = rootFeatures.length;
+    const completedFeatures = rootFeatures.filter(f => f.status === 'live').length;
+    const inProgressFeatures = rootFeatures.filter(f => ['development', 'testing'].includes(f.status)).length;
+    const overdueFeatures = rootFeatures.filter(f => f.is_overdue).length;
     
-    const totalEstimatedHours = features.reduce((sum, f) => sum + (f.estimated_hours || 0), 0);
-    const totalActualHours = features.reduce((sum, f) => sum + (f.actual_hours || 0), 0);
+    const totalEstimatedHours = rootFeatures.reduce((sum, f) => sum + (f.estimated_hours || 0), 0);
+    const totalActualHours = rootFeatures.reduce((sum, f) => sum + (f.actual_hours || 0), 0);
     
     const progressPercentage = totalFeatures > 0 ? Math.round((completedFeatures / totalFeatures) * 100) : 0;
 
@@ -77,8 +82,55 @@ const ProjectDetails: React.FC = () => {
     };
   }, [features]);
 
+  // Enhance features with aggregated progress for parent features
+  const featuresWithAggregatedProgress = useMemo(() => {
+    return enhanceFeaturesWithAggregatedProgress(features);
+  }, [features]);
+
+  // Filter to show only root features (no parent) for list/kanban views
+  const rootFeaturesWithAggregatedProgress = useMemo(() => {
+    // Exclude sub-features - only show features without a parent (hierarchy_level 0)
+    const rootFeatures = featuresWithAggregatedProgress.filter(feature => {
+      const hasNoParent = !feature.parent || feature.parent === null || feature.parent === "" || feature.parent === "undefined";
+      const isRootLevel = feature.hierarchy_level === 0;
+      return hasNoParent && isRootLevel;
+    });
+    
+    return rootFeatures;
+  }, [featuresWithAggregatedProgress]);
+
+  // Create feature mutation for sub-features
+  const createFeatureMutation = useMutation({
+    mutationFn: (data: CreateFeatureRequest) => apiService.createFeature(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['projects', id] });
+      // Refetch project data to update features list
+      if (id) {
+        apiService.getFeatures({ project: id }).then((response) => {
+          setFeatures(response.data.results);
+        });
+      }
+      setShowCreateForm(false);
+      setCreatingSubFeature(null);
+    },
+  });
+
+  const handleCreateSubFeatureFromModal = (parentId: string) => {
+    setCreatingSubFeature(parentId);
+    setDetailModalFeature(null);
+  };
+
+  const handleCreateFeature = async (data: any) => {
+    await createFeatureMutation.mutateAsync(data as CreateFeatureRequest);
+  };
+
+  const handleSubFeatureSubmit = async (data: any) => {
+    await createFeatureMutation.mutateAsync(data as CreateFeatureRequest);
+    setCreatingSubFeature(null);
+  };
+
   const handleFeatureEdit = (feature: FeatureListItem) => {
-    setSelectedFeature(feature);
+    setDetailModalFeature(feature);
   };
 
   const handleFeatureDelete = async (feature: FeatureListItem) => {
@@ -160,12 +212,11 @@ const ProjectDetails: React.FC = () => {
             <div className="text-6xl mb-4">😞</div>
             <h2 className="text-2xl font-bold text-gray-800 mb-2">Project Not Found</h2>
             <p className="text-gray-600 mb-6">{error || 'The project you\'re looking for doesn\'t exist.'}</p>
-            <Link
-              to="/projects"
-              className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-primary-500 to-primary-600 text-white font-bold rounded-2xl hover:from-primary-600 hover:to-primary-700 transition-all duration-200 shadow-medium hover:shadow-large"
-            >
-              ← Back to Projects
-            </Link>
+            <Button asChild>
+              <Link to="/projects">
+                ← Back to Projects
+              </Link>
+            </Button>
           </div>
         </div>
       </MainLayout>
@@ -176,8 +227,8 @@ const ProjectDetails: React.FC = () => {
     <MainLayout>
       <div className="space-y-6">
         {/* Compact Project Header */}
-        <div className="bg-white rounded-2xl shadow-md border border-gray-200 overflow-hidden">
-          <div className="p-4 border-b border-gray-200">
+        <Card>
+          <CardHeader className="p-4 border-b border-gray-200">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
                 {/* Breadcrumb */}
@@ -192,14 +243,14 @@ const ProjectDetails: React.FC = () => {
               
               {/* Quick Actions */}
               <div className="flex items-center gap-2">
-                <button className="inline-flex items-center px-3 py-2 bg-accent-50 text-accent-600 hover:bg-accent-100 font-medium rounded-lg transition-all duration-200 text-sm">
+                <Button variant="outline" size="sm" onClick={() => setShowCreateForm(true)}>
                   <span className="mr-1">✨</span>
                   Add Feature
-                </button>
-                <button className="inline-flex items-center px-3 py-2 bg-primary-50 text-primary-600 hover:bg-primary-100 font-medium rounded-lg transition-all duration-200 text-sm">
+                </Button>
+                <Button variant="outline" size="sm">
                   <span className="mr-1">✏️</span>
                   Edit
-                </button>
+                </Button>
               </div>
             </div>
             
@@ -208,9 +259,9 @@ const ProjectDetails: React.FC = () => {
               <div className="flex items-center gap-3 mb-2">
                 <h1 className="text-2xl font-bold text-gray-900">{project.name}</h1>
                 {projectMetrics && (
-                  <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-success-100 text-success-800">
+                  <Badge variant="secondary" className="bg-success-100 text-success-800">
                     {projectMetrics.progressPercentage}% Complete
-                  </span>
+                  </Badge>
                 )}
               </div>
               
@@ -238,20 +289,21 @@ const ProjectDetails: React.FC = () => {
                 </div>
               )}
             </div>
-          </div>
+          </CardHeader>
 
           {/* Tab Navigation */}
           <div className="flex border-b border-gray-200">
             {[
-              { key: 'features', label: 'Features', icon: '⚡', count: features.length },
+              { key: 'features', label: 'Features', icon: '⚡', count: features.filter(f => !f.parent).length },
               { key: 'overview', label: 'Overview', icon: '📊' },
               { key: 'team', label: 'Team', icon: '👥' },
               { key: 'settings', label: 'Settings', icon: '⚙️' }
             ].map((tab) => (
-              <button
+              <Button
                 key={tab.key}
+                variant="ghost"
                 onClick={() => setActiveTab(tab.key as any)}
-                className={`flex items-center px-6 py-4 text-sm font-medium border-b-2 transition-all duration-200 ${
+                className={`flex items-center px-6 py-4 text-sm font-medium border-b-2 rounded-none transition-all duration-200 ${
                   activeTab === tab.key
                     ? 'border-primary-500 text-primary-600 bg-primary-50'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -260,22 +312,25 @@ const ProjectDetails: React.FC = () => {
                 <span className="mr-2">{tab.icon}</span>
                 {tab.label}
                 {tab.count !== undefined && (
-                  <span className={`ml-2 px-2 py-1 rounded-full text-xs ${
-                    activeTab === tab.key ? 'bg-primary-100 text-primary-600' : 'bg-gray-100 text-gray-600'
-                  }`}>
+                  <Badge 
+                    variant="secondary" 
+                    className={`ml-2 ${
+                      activeTab === tab.key ? 'bg-primary-100 text-primary-600' : 'bg-gray-100 text-gray-600'
+                    }`}
+                  >
                     {tab.count}
-                  </span>
+                  </Badge>
                 )}
-              </button>
+              </Button>
             ))}
           </div>
-        </div>
+        </Card>
 
         {/* Tab Content */}
-        <div className="bg-white rounded-2xl shadow-md border border-gray-200 overflow-hidden">
+        <Card>
           {activeTab === 'features' && (
             <>
-              <div className="p-4 border-b border-gray-200">
+              <CardHeader className="p-4 border-b border-gray-200">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                   <div>
                     <h2 className="text-xl font-bold text-gray-900 mb-1">Features & Tasks</h2>
@@ -285,8 +340,10 @@ const ProjectDetails: React.FC = () => {
                   {/* View Mode Switcher */}
                   <div className="flex items-center space-x-1 bg-gray-100 rounded-xl p-1">
                     {(['list', 'kanban', 'gantt'] as ViewMode[]).map((mode) => (
-                      <button
+                      <Button
                         key={mode}
+                        variant="ghost"
+                        size="sm"
                         onClick={() => setViewMode(mode)}
                         className={`flex items-center px-3 py-2 rounded-lg font-medium text-sm transition-all duration-200 ${
                           viewMode === mode
@@ -296,52 +353,49 @@ const ProjectDetails: React.FC = () => {
                       >
                         <span className="mr-1">{getViewModeIcon(mode)}</span>
                         {mode.charAt(0).toUpperCase() + mode.slice(1)}
-                      </button>
+                      </Button>
                     ))}
                   </div>
                 </div>
-              </div>
+              </CardHeader>
 
-              <div className="p-4">
+              <CardContent className="p-4">
                 {features.length === 0 ? (
                   <div className="text-center py-12">
                     <div className="text-5xl mb-4">🎯</div>
                     <h3 className="text-lg font-bold text-gray-800 mb-2">No Features Yet</h3>
                     <p className="text-gray-600 mb-6 text-sm">Start by creating your first feature for this project.</p>
-                    <button className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-accent-500 to-accent-600 text-white font-medium rounded-xl hover:from-accent-600 hover:to-accent-700 transition-all duration-200">
+                    <Button onClick={() => setShowCreateForm(true)}>
                       <span className="mr-2">✨</span>
                       Create Feature
-                    </button>
+                    </Button>
                   </div>
                 ) : (
                   <>
                     {viewMode === 'list' && (
-                      <ShrinkingScrollContainer
-                        className="max-h-[60vh] scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 p-6"
-                        itemSelector=".feature-card"
-                        shrinkRatio={0.5}
-                        shrinkThreshold={120}
-                      >
+                      <div className="max-h-[60vh] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 p-6">
                         <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-                          {features.map((feature) => (
-                            <div key={feature.id} className="feature-card shrink-item">
+                          {rootFeaturesWithAggregatedProgress.map((feature) => (
+                            <div key={feature.id} className="feature-card">
                               <FeatureCard
                                 feature={feature}
                                 onEdit={handleFeatureEdit}
                                 onDelete={handleFeatureDelete}
                                 onStatusChange={handleFeatureStatusChange}
                                 onViewDetails={handleFeatureViewDetails}
+                                showHierarchy={false}
                               />
                             </div>
                           ))}
                         </div>
-                      </ShrinkingScrollContainer>
+                      </div>
                     )}
+                    
                     
                     {viewMode === 'kanban' && (
                       <div className="max-h-[60vh] overflow-x-auto overflow-y-hidden">
                         <FeatureKanbanView
-                          features={features}
+                          features={rootFeaturesWithAggregatedProgress}
                           onEdit={handleFeatureEdit}
                           onDelete={handleFeatureDelete}
                           onStatusChange={handleFeatureStatusChange}
@@ -353,7 +407,7 @@ const ProjectDetails: React.FC = () => {
                     {viewMode === 'gantt' && (
                       <div className="max-h-[60vh] overflow-auto">
                         <FeatureGanttView
-                          features={features}
+                          features={featuresWithAggregatedProgress}
                           projectId={project.id}
                           onFeatureClick={handleFeatureViewDetails}
                         />
@@ -361,36 +415,36 @@ const ProjectDetails: React.FC = () => {
                     )}
                   </>
                 )}
-              </div>
+              </CardContent>
             </>
           )}
 
           {activeTab === 'overview' && projectMetrics && (
-            <div className="p-6">
+            <CardContent className="p-6">
               <ProjectOverview project={project} metrics={projectMetrics} />
-            </div>
+            </CardContent>
           )}
 
           {activeTab === 'team' && (
-            <div className="p-6">
+            <CardContent className="p-6">
               <div className="text-center py-12">
                 <div className="text-5xl mb-4">👥</div>
                 <h3 className="text-lg font-bold text-gray-800 mb-2">Team Management</h3>
                 <p className="text-gray-600 text-sm">Team management features coming soon.</p>
               </div>
-            </div>
+            </CardContent>
           )}
 
           {activeTab === 'settings' && (
-            <div className="p-6">
+            <CardContent className="p-6">
               <div className="text-center py-12">
                 <div className="text-5xl mb-4">⚙️</div>
                 <h3 className="text-lg font-bold text-gray-800 mb-2">Project Settings</h3>
                 <p className="text-gray-600 text-sm">Project settings and configuration options coming soon.</p>
               </div>
-            </div>
+            </CardContent>
           )}
-        </div>
+        </Card>
       </div>
 
       {/* Feature Detail Modal */}
@@ -400,7 +454,35 @@ const ProjectDetails: React.FC = () => {
         onClose={() => setDetailModalFeature(null)}
         onSave={handleFeatureModalSave}
         onDelete={handleFeatureModalDelete}
+        onCreateSubFeature={handleCreateSubFeatureFromModal}
       />
+
+      {/* Create Feature Form */}
+      {showCreateForm && (
+        <FeatureForm
+          projectId={id}
+          projectName={project?.name}
+          onSubmit={handleCreateFeature}
+          onCancel={() => setShowCreateForm(false)}
+          isSubmitting={createFeatureMutation.isPending}
+        />
+      )}
+
+      {/* Create Sub-Feature Form */}
+      {creatingSubFeature && (() => {
+        const parentFeature = features.find(f => f.id === creatingSubFeature);
+        return (
+          <FeatureForm
+            projectId={id}
+            projectName={project?.name}
+            parentId={creatingSubFeature}
+            parentName={parentFeature?.title}
+            onSubmit={handleSubFeatureSubmit}
+            onCancel={() => setCreatingSubFeature(null)}
+            isSubmitting={createFeatureMutation.isPending}
+          />
+        );
+      })()}
     </MainLayout>
   );
 };
