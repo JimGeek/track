@@ -66,6 +66,8 @@ const Dashboard: React.FC = () => {
       parent_title: feature.parent_title || null,
       estimated_hours: null,
       actual_hours: null,
+      start_date: null,
+      end_date: null,
       due_date: feature.due_date,
       completed_date: null,
       created_at: new Date().toISOString(),

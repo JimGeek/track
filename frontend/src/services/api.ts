@@ -38,6 +38,8 @@ export interface Project {
   owner: User;
   team_members: User[];
   priority: 'low' | 'medium' | 'high' | 'critical';
+  start_date: string | null;
+  end_date: string | null;
   deadline: string | null;
   created_at: string;
   updated_at: string;
@@ -131,6 +133,8 @@ export interface FeatureListItem {
   parent_title: string | null;
   estimated_hours: number | null;
   actual_hours: number | null;
+  start_date: string | null;
+  end_date: string | null;
   due_date: string | null;
   completed_date: string | null;
   created_at: string;
@@ -155,6 +159,8 @@ export interface CreateFeatureRequest {
   priority?: 'low' | 'medium' | 'high' | 'critical';
   assignee_email?: string;
   estimated_hours?: number;
+  start_date?: string;
+  end_date?: string;
   due_date?: string;
   order?: number;
 }
@@ -167,6 +173,8 @@ export interface UpdateFeatureRequest {
   assignee_email?: string;
   estimated_hours?: number;
   actual_hours?: number;
+  start_date?: string;
+  end_date?: string;
   due_date?: string;
   order?: number;
 }

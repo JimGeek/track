@@ -85,25 +85,10 @@ const FeatureForm: React.FC<FeatureFormProps> = ({
     enabled: !!formData.project,
   });
 
-  // Fetch potential dependency features (exclude current feature and its sub-features)
-  const { data: dependencyFeaturesData } = useQuery({
-    queryKey: ['dependency-features', formData.project, formData.parent, feature?.id],
-    queryFn: () => apiService.getFeatures({ project: formData.project }),
-    enabled: !!formData.project,
-  });
 
   const projects = projectsData?.data?.results || [];
   const parentFeatures = featuresData?.data?.results || [];
   
-  // Filter potential dependencies with flexible scope rules
-  const potentialDependencies = (dependencyFeaturesData?.data?.results || []).filter(f => {
-    // Exclude current feature
-    if (feature && f.id === feature.id) return false;
-    
-    // For simplicity and flexibility: all features in the same project can be dependencies
-    // This allows maximum flexibility in project planning
-    return true;
-  });
   
   // Find the selected project name for display
   const selectedProject = projects.find(p => p.id === formData.project);
@@ -132,23 +117,6 @@ const FeatureForm: React.FC<FeatureFormProps> = ({
     }
   };
 
-  const handleDependencyChange = (dependencyId: string, checked: boolean) => {
-    setFormData(prev => ({
-      ...prev,
-      dependencies: checked
-        ? [...prev.dependencies, dependencyId]
-        : prev.dependencies.filter(id => id !== dependencyId)
-    }));
-    
-    // Clear any existing errors for dependencies
-    if (errors.dependencies) {
-      setErrors(prev => {
-        const newErrors = { ...prev };
-        delete newErrors.dependencies;
-        return newErrors;
-      });
-    }
-  };
 
   // Validate dates against project boundaries
   const validateDates = () => {
@@ -209,7 +177,6 @@ const FeatureForm: React.FC<FeatureFormProps> = ({
         estimated_hours: formData.estimated_hours ? Number(formData.estimated_hours) : undefined,
         start_date: formData.start_date || undefined,
         end_date: formData.end_date || undefined,
-        dependencies: formData.dependencies.length > 0 ? formData.dependencies : undefined,
       };
 
       // Remove empty strings
@@ -546,64 +513,6 @@ const FeatureForm: React.FC<FeatureFormProps> = ({
               </div>
             </div>
 
-            {/* Dependencies Section */}
-            <div className="space-y-4">
-              <h4 className="text-sm font-medium text-foreground">
-                Dependencies
-              </h4>
-              <p className="text-xs text-muted-foreground">
-                Select other features in this project that this feature depends on. Dependencies help establish work order and project relationships.
-              </p>
-              
-              {potentialDependencies.length > 0 ? (
-                <div className="space-y-2 max-h-48 overflow-y-auto border border-input rounded-md p-3">
-                  {potentialDependencies.map((dependency) => (
-                    <label
-                      key={dependency.id}
-                      className="flex items-center space-x-3 cursor-pointer p-2 hover:bg-muted rounded-md transition-colors"
-                    >
-                      <Checkbox
-                        checked={formData.dependencies.includes(dependency.id)}
-                        onCheckedChange={(checked) => handleDependencyChange(dependency.id, checked as boolean)}
-                      />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center space-x-2">
-                          <span className="text-sm font-medium text-foreground truncate">
-                            {dependency.title}
-                          </span>
-                          <Badge variant={dependency.status === 'live' ? 'default' : 'secondary'} className="text-xs">
-                            {dependency.status}
-                          </Badge>
-                          <Badge variant={dependency.priority === 'critical' ? 'destructive' : 'outline'} className="text-xs">
-                            {dependency.priority}
-                          </Badge>
-                        </div>
-                        {dependency.assignee && (
-                          <p className="text-xs text-muted-foreground">
-                            Assigned to: {dependency.assignee.first_name} {dependency.assignee.last_name}
-                          </p>
-                        )}
-                      </div>
-                    </label>
-                  ))}
-                </div>
-              ) : (
-                <div className="border border-dashed border-input rounded-md p-4 text-center">
-                  <p className="text-sm text-muted-foreground mb-2">
-                    No other features are available in this project.
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    Create more features in this project to enable dependency relationships.
-                  </p>
-                </div>
-              )}
-              
-              {getErrorMessage('dependencies') && (
-                <p className="text-sm text-destructive">
-                  {getErrorMessage('dependencies')}
-                </p>
-              )}
-            </div>
           </form>
         </div>
 

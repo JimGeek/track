@@ -212,11 +212,11 @@ const ProjectDetails: React.FC = () => {
             <div className="text-6xl mb-4">😞</div>
             <h2 className="text-2xl font-bold text-gray-800 mb-2">Project Not Found</h2>
             <p className="text-gray-600 mb-6">{error || 'The project you\'re looking for doesn\'t exist.'}</p>
-            <Button asChild>
-              <Link to="/projects">
+            <Link to="/projects">
+              <Button>
                 ← Back to Projects
-              </Link>
-            </Button>
+              </Button>
+            </Link>
           </div>
         </div>
       </MainLayout>
@@ -383,7 +383,6 @@ const ProjectDetails: React.FC = () => {
                                 onDelete={handleFeatureDelete}
                                 onStatusChange={handleFeatureStatusChange}
                                 onViewDetails={handleFeatureViewDetails}
-                                showHierarchy={false}
                               />
                             </div>
                           ))}
