@@ -5,7 +5,7 @@ import apiService from '../../services/api';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../ui/dialog';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
-import { Button } from '../ui/button';
+import Button from '../ui/Button';
 import { Checkbox } from '../ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Badge } from '../ui/badge';
@@ -57,7 +57,6 @@ const FeatureForm: React.FC<FeatureFormProps> = ({
     start_date: feature?.start_date || '',
     end_date: feature?.end_date || feature?.due_date || '', // due_date maps to end_date
     order: feature?.order || 0,
-    dependencies: feature?.dependencies || [],
   });
 
   // Update project when parent feature data is loaded

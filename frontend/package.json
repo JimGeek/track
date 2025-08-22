@@ -27,6 +27,11 @@
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
+    "test:critical": "./scripts/test-critical-bugs.sh",
+    "test:coverage": "react-scripts test --coverage --watchAll=false",
+    "test:date-bugs": "react-scripts test --testPathPattern='FeatureForm|FeatureGanttView|apiDateHandling' --watchAll=false",
+    "test:dependency-bugs": "react-scripts test --testPathPattern='dependencyValidation' --watchAll=false",
+    "test:workflows": "react-scripts test --testPathPattern='featureWorkflows' --watchAll=false",
     "eject": "react-scripts eject"
   },
   "eslintConfig": {

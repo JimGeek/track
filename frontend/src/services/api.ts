@@ -96,6 +96,8 @@ export interface Feature {
   reporter: User;
   estimated_hours: number | null;
   actual_hours: number | null;
+  start_date: string | null;
+  end_date: string | null;
   due_date: string | null;
   completed_date: string | null;
   created_at: string;

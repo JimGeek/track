@@ -12,7 +12,7 @@ import FeatureDetailModal from '../components/features/FeatureDetailModal';
 import FeatureForm from '../components/features/FeatureForm';
 import FeatureKanbanView from '../components/features/FeatureKanbanView';
 import FeatureGanttView from '../components/features/FeatureGanttView';
-import { Button } from '../components/ui/button';
+import Button from '../components/ui/Button';
 import { Badge } from '../components/ui/badge';
 import { Card, CardContent, CardHeader } from '../components/ui/card';
 

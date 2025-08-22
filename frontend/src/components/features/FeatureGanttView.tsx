@@ -392,24 +392,8 @@ const FeatureGanttView: React.FC<FeatureGanttViewProps> = ({
       };
     });
 
-    // Simple dependency lines
+    // Dependencies removed - no dependency lines needed
     const dependencyLines: DependencyLine[] = [];
-    items.forEach((item, index) => {
-      if (item.dependencies_count > 0) {
-        const rowHeight = 56;
-        const toY = index * rowHeight + rowHeight / 2;
-        const toX = 320 + item.startPos * 8;
-        
-        dependencyLines.push({
-          fromFeatureId: 'unknown',
-          toFeatureId: item.id,
-          fromX: toX - 100,
-          fromY: toY,
-          toX: toX,
-          toY: toY
-        });
-      }
-    });
 
     return { timeline, items, dependencyLines };
   }, [features, buildHierarchy, flattenHierarchy, expandedNodes, findNodeInHierarchy, hasChildrenInHierarchy]);
