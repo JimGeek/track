@@ -1,127 +1,65 @@
 # Product Roadmap
 
-> Last Updated: 2025-08-21
-> Version: 1.0.0
+> Last Updated: 2025-08-26
+> Version: 2.0.0
 > Status: Planning
 
-## Phase 1: MVP Core (4-5 weeks)
+## Phase 1: Core Todo System (2-3 weeks)
 
-**Goal:** Establish core functionality for project and feature request management
-**Success Criteria:** Users can authenticate, create/manage projects and features, track basic status workflow
+**Goal:** Build foundational todo list functionality with multiple lists and task management
+**Success Criteria:** Users can create multiple todo lists, add tasks with full properties, and manage basic workflow
 
-### Must-Have Features
+### Features
 
-**User Authentication System (M: 1 week)**
-- Email/password registration and login
-- User session management
-- Password reset functionality
-- Dependencies: None
+- [ ] **Next.js Project Setup** - Initialize Next.js 15 with TypeScript and shadcn/ui `S`
+- [ ] **Database Schema** - Design and implement Prisma schema for todos and lists `M`
+- [ ] **Todo List CRUD** - Create, read, update, delete todo lists `M`
+- [ ] **Task Management** - Complete task CRUD with title, description, dates, priority, status `L`
+- [ ] **List View Implementation** - Basic todo list interface with sorting and filtering `M`
+- [ ] **Authentication Setup** - Simple auth with NextAuth.js (optional for MVP) `S`
 
-**Project Management CRUD (L: 2 weeks)**
-- Create, read, update, delete projects
-- Project descriptions and metadata
-- Project deadlines and domain information
-- Basic project listing and search
-- Dependencies: User Authentication
+### Dependencies
 
-**Feature Request Management (L: 2 weeks)**
-- Create, read, update, delete feature requests
-- Feature descriptions and date tracking
-- Link features to parent projects
-- Basic feature listing and filtering
-- Dependencies: Project Management
+- Next.js setup required before all other features
+- Database schema needed for CRUD operations
+- Task management builds on todo list foundation
 
-**Status Workflow System (M: 1 week)**
-- Implement 5-stage workflow (idea → specification → development → testing → live)
-- Status transitions and validation
-- Status history tracking
-- Dependencies: Feature Request Management
+## Phase 2: Multi-View System (2-3 weeks)
 
-## Phase 2: Key Features & Analytics (3-4 weeks)
+**Goal:** Implement Kanban and Gantt chart views with dashboard analytics
+**Success Criteria:** Users can seamlessly switch between List, Kanban, and Gantt views with comprehensive dashboard
 
-**Goal:** Add dashboard analytics, visual timeline system, and hierarchical navigation
-**Success Criteria:** Users have comprehensive visibility into project progress, timelines, and feature dependencies
+### Features
 
-### Must-Have Features
+- [ ] **Kanban Board View** - Drag-and-drop task management with status columns `L`
+- [ ] **Gantt Chart View** - Timeline visualization with date ranges and dependencies `XL`
+- [ ] **View Switcher Component** - Seamless transitions between three view modes `M`
+- [ ] **Dashboard Implementation** - Latest activity and due date analytics `L`
+- [ ] **Priority System** - Visual indicators and sorting for Low/Medium/High/Urgent `M`
+- [ ] **Date Filtering** - Tasks due today, tomorrow, this week, this month `M`
 
-**Sub-Feature Request System (M: 1 week)**
-- Create nested sub-features under parent features
-- Hierarchical display and navigation
-- Sub-feature status inheritance rules
-- Dependencies: Feature Request Management, Status Workflow
+### Dependencies
 
-**Dashboard Analytics (L: 2 weeks)**
-- Project stage distribution charts
-- Activity tracking and metrics
-- Upcoming deadlines overview
-- Progress indicators and completion rates
-- Dependencies: Project Management, Feature Management, Status Workflow
+- List view must be complete for Kanban implementation
+- Task CRUD required for all view implementations
+- Priority system needed for proper sorting and visualization
 
-**Visual Timeline & Chart System (L: 2 weeks)**
-- Timeline visualization for projects and features
-- Overlap detection and conflict highlighting
-- Interactive chart navigation
-- Date range filtering and zoom controls
-- Dependencies: Dashboard Analytics, Feature Management
+## Phase 3: Design & Performance (1-2 weeks)
 
-**Advanced Search & Filtering (S: 2-3 days)**
-- Multi-criteria search across projects and features
-- Status-based filtering
-- Date range filtering
-- Saved search functionality
-- Dependencies: Project Management, Feature Management
+**Goal:** Achieve Vercel/Notion-level design polish and lightning-fast performance
+**Success Criteria:** Sub-second loading times, beautiful minimalistic interface, and excellent mobile experience
 
-## Phase 3: Polish & Optimization (2-3 weeks)
+### Features
 
-**Goal:** Enhance user experience with advanced UI/UX, performance optimization, and responsive design
-**Success Criteria:** Application provides smooth, responsive experience across all devices with professional polish
+- [ ] **Minimalistic Design System** - Implement Vercel/Notion-inspired clean aesthetic `L`
+- [ ] **Performance Optimization** - Sub-second loading times and instant view transitions `M`
+- [ ] **Responsive Mobile Design** - Touch-friendly interface for all screen sizes `M`
+- [ ] **Dark Mode Support** - System preference detection with manual toggle `S`
+- [ ] **Micro-interactions** - Smooth animations and transitions using Framer Motion `M`
+- [ ] **Accessibility Improvements** - ARIA labels, keyboard navigation, focus states `M`
 
-### Must-Have Features
+### Dependencies
 
-**Advanced UI/UX Enhancements (M: 1 week)**
-- Drag-and-drop functionality for status updates
-- Bulk actions for multiple items
-- Enhanced form validation and user feedback
-- Keyboard shortcuts and accessibility improvements
-- Dependencies: All Phase 2 features
-
-**Performance Optimization (S: 2-3 days)**
-- Database query optimization
-- Caching implementation
-- Lazy loading for large datasets
-- API response time improvements
-- Dependencies: All core features
-
-**Responsive Design System (M: 1 week)**
-- Mobile-first responsive layouts
-- Touch-friendly interface elements
-- Progressive web app capabilities
-- Cross-browser compatibility testing
-- Dependencies: Advanced UI/UX
-
-**Animations & Micro-interactions (S: 2-3 days)**
-- Smooth transitions between states
-- Loading animations and progress indicators
-- Hover effects and interactive feedback
-- Status change animations
-- Dependencies: Responsive Design, Advanced UI/UX
-
-### Nice-to-Have Features
-
-**Data Export Functionality (S: 2-3 days)**
-- Export projects and features to CSV/JSON
-- Generate timeline reports
-- Print-friendly views
-- Dependencies: Dashboard Analytics
-
-**Email Notifications (XS: 1 day)**
-- Deadline reminders
-- Status change notifications
-- Weekly progress summaries
-- Dependencies: User Authentication, Status Workflow
-
-**Dark Mode Theme (XS: 1 day)**
-- Toggle between light and dark themes
-- User preference persistence
-- Consistent theming across components
-- Dependencies: Responsive Design System
+- All core functionality must be complete
+- shadcn/ui components provide foundation for design system
+- Performance optimization requires complete feature set for testing
