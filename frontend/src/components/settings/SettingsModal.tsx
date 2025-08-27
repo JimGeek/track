@@ -1,6 +1,6 @@
 import React, { useState, memo } from 'react';
 import Modal from '../ui/Modal';
-import Button from '../ui/Button';
+import { Button } from '../ui/Button';
 import ThemeToggle from '../ui/ThemeToggle';
 import ExportModal from '../export/ExportModal';
 import ImportModal from '../export/ImportModal';
@@ -266,12 +266,10 @@ const SettingsModal: React.FC<SettingsModalProps> = memo(({ isOpen, onClose }) =
                     <Button
                       variant="outline"
                       onClick={() => setShowExportModal(true)}
-                      leftIcon={
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 12l3 3m0 0l3-3m-3 3V9" />
-                        </svg>
-                      }
                     >
+                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 12l3 3m0 0l3-3m-3 3V9" />
+                      </svg>
                       Export Data
                     </Button>
                   </div>
@@ -286,12 +284,10 @@ const SettingsModal: React.FC<SettingsModalProps> = memo(({ isOpen, onClose }) =
                     <Button
                       variant="outline"
                       onClick={() => setShowImportModal(true)}
-                      leftIcon={
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                        </svg>
-                      }
                     >
+                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                      </svg>
                       Import Data
                     </Button>
                   </div>
@@ -304,7 +300,7 @@ const SettingsModal: React.FC<SettingsModalProps> = memo(({ isOpen, onClose }) =
                       These actions cannot be undone.
                     </p>
                     <Button
-                      variant="danger"
+                      variant="destructive"
                       size="sm"
                       onClick={() => {
                         if (window.confirm('Are you sure? This will permanently delete all your data.')) {
@@ -393,7 +389,7 @@ const SettingsModal: React.FC<SettingsModalProps> = memo(({ isOpen, onClose }) =
         </div>
 
         <div className="flex justify-end pt-4 border-t border-gray-200 dark:border-gray-700">
-          <Button variant="primary" onClick={onClose}>
+          <Button variant="default" onClick={onClose}>
             Close
           </Button>
         </div>

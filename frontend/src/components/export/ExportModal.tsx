@@ -1,7 +1,7 @@
 import React, { useState, memo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import Modal from '../ui/Modal';
-import Button from '../ui/Button';
+import { Button } from '../ui/Button';
 import LoadingSpinner from '../ui/LoadingSpinner';
 import { useToast } from '../ui/Toast';
 import apiService from '../../services/api';
@@ -258,11 +258,11 @@ const ExportModal: React.FC<ExportModalProps> = memo(({ isOpen, onClose }) => {
             Cancel
           </Button>
           <Button
-            variant="primary"
+            variant="default"
             onClick={handleExport}
             disabled={isExporting}
-            leftIcon={isExporting ? <LoadingSpinner size="sm" color="white" /> : undefined}
           >
+            {isExporting && <LoadingSpinner size="sm" color="white" />}
             {isExporting ? 'Exporting...' : 'Export'}
           </Button>
         </div>

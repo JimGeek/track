@@ -398,7 +398,7 @@ export interface CreateWorkflowRuleRequest {
 }
 
 // API Configuration
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8001';
 
 class ApiService {
   private client: AxiosInstance;
@@ -442,7 +442,7 @@ class ApiService {
             }
           } catch (refreshError) {
             this.clearTokens();
-            window.location.href = '/auth/login';
+            window.location.href = '/login';
           }
         }
         

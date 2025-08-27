@@ -22,7 +22,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   }, []);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+    <div className="min-h-screen bg-background">
       {/* Sidebar */}
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
@@ -33,7 +33,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
 
         {/* Page content */}
         <main className="flex-1">
-          <div className="px-6 sm:px-8 lg:px-12 py-6 sm:py-8">
+          <div className="px-4 sm:px-6 lg:px-8 py-6">
             {children}
           </div>
         </main>

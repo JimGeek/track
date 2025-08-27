@@ -1,7 +1,7 @@
 import React, { useState, memo } from 'react';
 import { useNotifications, Notification } from '../../hooks/useNotifications';
 import FadeTransition from '../ui/FadeTransition';
-import Button from '../ui/Button';
+import { Button } from '../ui/Button';
 
 interface NotificationCenterProps {
   isOpen: boolean;

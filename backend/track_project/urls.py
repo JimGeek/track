@@ -25,6 +25,7 @@ urlpatterns = [
     path("api/", include('projects.urls')),
     path("api/", include('features.urls')),
     path("api/workflow/", include('workflow.urls')),
+    path("api/", include('todos.urls')),
 ]
 
 # Serve static and media files in development

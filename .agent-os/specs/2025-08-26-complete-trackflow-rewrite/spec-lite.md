@@ -1,0 +1,3 @@
+# Spec Summary (Lite)
+
+Complete rewrite of the existing Django-based project management platform into TrackFlow, a minimalistic todo list application using Next.js 15+ with shadcn/ui components. This rewrite discards all existing code and implements a lightweight, fast, and clean todo management system with List, Kanban, and Gantt views inspired by Vercel and Notion's minimalistic aesthetic. The new application focuses on individual professionals and small teams who need simple task organization across multiple lists with priority management and intelligent dashboard analytics.

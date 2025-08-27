@@ -6,6 +6,9 @@ import LoginForm from './components/auth/LoginForm';
 import RegisterForm from './components/auth/RegisterForm';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import Dashboard from './pages/Dashboard';
+import TodoLists from './pages/TodoLists';
+import TodoListDetail from './pages/TodoListDetail';
+import Calendar from './pages/Calendar';
 import Projects from './pages/Projects';
 import ProjectDetails from './pages/ProjectDetails';
 import Features from './pages/Features';
@@ -34,6 +37,30 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <Dashboard />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/todo-lists"
+                element={
+                  <ProtectedRoute>
+                    <TodoLists />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/todo-lists/:id"
+                element={
+                  <ProtectedRoute>
+                    <TodoListDetail />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/calendar"
+                element={
+                  <ProtectedRoute>
+                    <Calendar />
                   </ProtectedRoute>
                 }
               />

@@ -1,6 +1,11 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
+import { Button } from '../ui/Button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
+import { Input } from '../ui/input';
+import { Label } from '../ui/label';
+import { Loader2, CheckSquare } from 'lucide-react';
 
 const RegisterForm: React.FC = () => {
   const { register, isLoading } = useAuth();
@@ -42,154 +47,149 @@ const RegisterForm: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
-        <div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
+    <div className="min-h-screen flex items-center justify-center bg-background px-4 py-12 sm:px-6 lg:px-8">
+      <div className="w-full max-w-md space-y-8">
+        {/* Logo and Brand */}
+        <div className="text-center">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-primary">
+            <CheckSquare className="h-6 w-6 text-primary-foreground" />
+          </div>
+          <h2 className="mt-6 text-3xl font-bold tracking-tight">
             Create your account
           </h2>
-          <p className="mt-2 text-center text-sm text-gray-600">
-            Or{' '}
-            <Link
-              to="/login"
-              className="font-medium text-primary-600 hover:text-primary-500"
-            >
-              sign in to existing account
-            </Link>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Join Track to organize your todos and boost productivity
           </p>
         </div>
-        
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-          {errors.general && (
-            <div className="rounded-md bg-red-50 p-4">
-              <div className="text-sm text-red-700">{errors.general[0]}</div>
-            </div>
-          )}
-          
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label htmlFor="first_name" className="block text-sm font-medium text-gray-700">
-                  First name
-                </label>
-                <input
-                  id="first_name"
-                  name="first_name"
-                  type="text"
-                  autoComplete="given-name"
+
+        {/* Registration Form */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Sign up</CardTitle>
+            <CardDescription>
+              Create your account to get started with Track.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {errors.general && (
+                <div className="rounded-md bg-destructive/15 p-3">
+                  <p className="text-sm text-destructive">{errors.general[0]}</p>
+                </div>
+              )}
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="first_name">First name</Label>
+                  <Input
+                    id="first_name"
+                    name="first_name"
+                    type="text"
+                    autoComplete="given-name"
+                    required
+                    placeholder="John"
+                    value={formData.first_name}
+                    onChange={handleChange}
+                    className={getErrorMessage('first_name') ? 'border-destructive' : ''}
+                  />
+                  {getErrorMessage('first_name') && (
+                    <p className="text-sm text-destructive">{getErrorMessage('first_name')}</p>
+                  )}
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="last_name">Last name</Label>
+                  <Input
+                    id="last_name"
+                    name="last_name"
+                    type="text"
+                    autoComplete="family-name"
+                    required
+                    placeholder="Doe"
+                    value={formData.last_name}
+                    onChange={handleChange}
+                    className={getErrorMessage('last_name') ? 'border-destructive' : ''}
+                  />
+                  {getErrorMessage('last_name') && (
+                    <p className="text-sm text-destructive">{getErrorMessage('last_name')}</p>
+                  )}
+                </div>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  name="email"
+                  type="email"
+                  autoComplete="email"
                   required
-                  className={`mt-1 appearance-none relative block w-full px-3 py-2 border ${
-                    getErrorMessage('first_name') ? 'border-red-300' : 'border-gray-300'
-                  } placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm`}
-                  placeholder="First name"
-                  value={formData.first_name}
+                  placeholder="john@example.com"
+                  value={formData.email}
                   onChange={handleChange}
+                  className={getErrorMessage('email') ? 'border-destructive' : ''}
                 />
-                {getErrorMessage('first_name') && (
-                  <p className="mt-1 text-sm text-red-600">{getErrorMessage('first_name')}</p>
+                {getErrorMessage('email') && (
+                  <p className="text-sm text-destructive">{getErrorMessage('email')}</p>
                 )}
               </div>
               
-              <div>
-                <label htmlFor="last_name" className="block text-sm font-medium text-gray-700">
-                  Last name
-                </label>
-                <input
-                  id="last_name"
-                  name="last_name"
-                  type="text"
-                  autoComplete="family-name"
+              <div className="space-y-2">
+                <Label htmlFor="password">Password</Label>
+                <Input
+                  id="password"
+                  name="password"
+                  type="password"
+                  autoComplete="new-password"
                   required
-                  className={`mt-1 appearance-none relative block w-full px-3 py-2 border ${
-                    getErrorMessage('last_name') ? 'border-red-300' : 'border-gray-300'
-                  } placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm`}
-                  placeholder="Last name"
-                  value={formData.last_name}
+                  placeholder="Create a secure password"
+                  value={formData.password}
                   onChange={handleChange}
+                  className={getErrorMessage('password') ? 'border-destructive' : ''}
                 />
-                {getErrorMessage('last_name') && (
-                  <p className="mt-1 text-sm text-red-600">{getErrorMessage('last_name')}</p>
+                {getErrorMessage('password') && (
+                  <p className="text-sm text-destructive">{getErrorMessage('password')}</p>
                 )}
               </div>
-            </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="password_confirm">Confirm password</Label>
+                <Input
+                  id="password_confirm"
+                  name="password_confirm"
+                  type="password"
+                  autoComplete="new-password"
+                  required
+                  placeholder="Confirm your password"
+                  value={formData.password_confirm}
+                  onChange={handleChange}
+                  className={getErrorMessage('password_confirm') ? 'border-destructive' : ''}
+                />
+                {getErrorMessage('password_confirm') && (
+                  <p className="text-sm text-destructive">{getErrorMessage('password_confirm')}</p>
+                )}
+              </div>
 
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                Email address
-              </label>
-              <input
-                id="email"
-                name="email"
-                type="email"
-                autoComplete="email"
-                required
-                className={`mt-1 appearance-none relative block w-full px-3 py-2 border ${
-                  getErrorMessage('email') ? 'border-red-300' : 'border-gray-300'
-                } placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm`}
-                placeholder="Email address"
-                value={formData.email}
-                onChange={handleChange}
-              />
-              {getErrorMessage('email') && (
-                <p className="mt-1 text-sm text-red-600">{getErrorMessage('email')}</p>
-              )}
-            </div>
+              <Button type="submit" className="w-full" disabled={isLoading}>
+                {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Create account
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
 
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                Password
-              </label>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                autoComplete="new-password"
-                required
-                className={`mt-1 appearance-none relative block w-full px-3 py-2 border ${
-                  getErrorMessage('password') ? 'border-red-300' : 'border-gray-300'
-                } placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm`}
-                placeholder="Password"
-                value={formData.password}
-                onChange={handleChange}
-              />
-              {getErrorMessage('password') && (
-                <p className="mt-1 text-sm text-red-600">{getErrorMessage('password')}</p>
-              )}
-            </div>
-
-            <div>
-              <label htmlFor="password_confirm" className="block text-sm font-medium text-gray-700">
-                Confirm password
-              </label>
-              <input
-                id="password_confirm"
-                name="password_confirm"
-                type="password"
-                autoComplete="new-password"
-                required
-                className={`mt-1 appearance-none relative block w-full px-3 py-2 border ${
-                  getErrorMessage('password_confirm') ? 'border-red-300' : 'border-gray-300'
-                } placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm`}
-                placeholder="Confirm password"
-                value={formData.password_confirm}
-                onChange={handleChange}
-              />
-              {getErrorMessage('password_confirm') && (
-                <p className="mt-1 text-sm text-red-600">{getErrorMessage('password_confirm')}</p>
-              )}
-            </div>
-          </div>
-
-          <div>
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
+        {/* Sign in link */}
+        <div className="text-center">
+          <p className="text-sm text-muted-foreground">
+            Already have an account?{' '}
+            <Link
+              to="/login"
+              className="font-semibold text-primary underline underline-offset-4 hover:text-primary/80"
             >
-              {isLoading ? 'Creating account...' : 'Create account'}
-            </button>
-          </div>
-        </form>
+              Sign in
+            </Link>
+          </p>
+        </div>
       </div>
     </div>
   );
