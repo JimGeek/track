@@ -2,7 +2,7 @@ import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { CheckSquare, LayoutDashboard, List, Calendar, Settings, User, LogOut } from 'lucide-react';
-import { Button } from '../ui/Button';
+import { Button } from "../ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,

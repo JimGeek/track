@@ -1,6 +1,6 @@
 import React, { useState, useRef, memo } from 'react';
 import Modal from '../ui/Modal';
-import { Button } from '../ui/Button';
+import { Button } from "../ui/button";
 import LoadingSpinner from '../ui/LoadingSpinner';
 import { useToast } from '../ui/Toast';
 import { importFromJSON, importFromCSV, ExportData } from '../../utils/export';

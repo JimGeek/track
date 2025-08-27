@@ -1,7 +1,7 @@
 import React, { useState, memo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import Modal from '../ui/Modal';
-import { Button } from '../ui/Button';
+import { Button } from "../ui/button";
 import LoadingSpinner from '../ui/LoadingSpinner';
 import { useToast } from '../ui/Toast';
 import apiService from '../../services/api';

@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import MainLayout from '../components/layout/MainLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
-import { Button } from '../components/ui/Button';
+import { Button } from '../components/ui/button';
 import { todoApiService, DashboardStats, Task, RecentActivity } from '../services/todoApi';
 import { 
   Plus, 

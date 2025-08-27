@@ -1,6 +1,6 @@
 import React, { useState, memo } from 'react';
 import Modal from '../ui/Modal';
-import { Button } from '../ui/Button';
+import { Button } from '../ui/button';
 import ThemeToggle from '../ui/ThemeToggle';
 import ExportModal from '../export/ExportModal';
 import ImportModal from '../export/ImportModal';

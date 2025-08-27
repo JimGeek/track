@@ -1,5 +1,5 @@
 import React from 'react';
-import { Button } from '../ui/Button';
+import { Button } from "../ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 
 const ShadcnTest: React.FC = () => {

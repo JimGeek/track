@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { FeatureListItem } from '../../services/api';
-import Button from '../ui/Button';
+import { Button } from "../ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Badge } from '../ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../ui/dialog';
@@ -103,7 +103,7 @@ const BulkActions: React.FC<BulkActionsProps> = ({
           </Button>
           
           <Button
-            variant="danger"
+            variant="destructive"
             size="sm"
             onClick={() => setShowDeleteDialog(true)}
             disabled={isLoading}
@@ -227,7 +227,7 @@ const BulkActions: React.FC<BulkActionsProps> = ({
             <Button variant="outline" onClick={() => setShowDeleteDialog(false)}>
               Cancel
             </Button>
-            <Button variant="danger" onClick={handleDelete} disabled={isLoading}>
+            <Button variant="destructive" onClick={handleDelete} disabled={isLoading}>
               Delete All Features
             </Button>
           </DialogFooter>
