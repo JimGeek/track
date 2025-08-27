@@ -139,21 +139,24 @@ class TaskViewSet(viewsets.ModelViewSet):
         
         tasks = self.get_queryset().exclude(status=TaskStatus.DONE)
         
+        # Add context for proper serialization
+        serializer_context = {'request': request}
+        
         dashboard_data = {
             'due_today': TaskSummarySerializer(
-                tasks.filter(end_date=today), many=True
+                tasks.filter(end_date=today), many=True, context=serializer_context
             ).data,
             'due_tomorrow': TaskSummarySerializer(
-                tasks.filter(end_date=tomorrow), many=True
+                tasks.filter(end_date=tomorrow), many=True, context=serializer_context
             ).data,
             'due_this_week': TaskSummarySerializer(
-                tasks.filter(end_date__gt=tomorrow, end_date__lte=week_end), many=True
+                tasks.filter(end_date__gt=tomorrow, end_date__lte=week_end), many=True, context=serializer_context
             ).data,
             'due_this_month': TaskSummarySerializer(
-                tasks.filter(end_date__gt=week_end, end_date__lte=month_end), many=True
+                tasks.filter(end_date__gt=week_end, end_date__lte=month_end), many=True, context=serializer_context
             ).data,
             'overdue': TaskSummarySerializer(
-                tasks.filter(end_date__lt=today), many=True
+                tasks.filter(end_date__lt=today), many=True, context=serializer_context
             ).data,
         }
         
