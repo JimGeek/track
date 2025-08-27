@@ -137,8 +137,9 @@ class TaskViewSet(viewsets.ModelViewSet):
         week_end = today + timedelta(days=7)
         month_end = today + timedelta(days=30)
         
-        # For testing, get all tasks for user 1 (admin)
+        # For testing, get all tasks for user 1 (admin) with explicit model import
         from django.contrib.auth import get_user_model
+        from .models import Task, TodoList
         User = get_user_model()
         admin_user = User.objects.get(id=1)
         tasks = Task.objects.filter(user=admin_user).exclude(status=TaskStatus.DONE).select_related('todo_list')
@@ -146,33 +147,39 @@ class TaskViewSet(viewsets.ModelViewSet):
         # Add context for proper serialization
         serializer_context = {'request': request}
         
-        dashboard_data = {
-            'due_today': TaskSummarySerializer(
-                tasks.filter(end_date=today), many=True, context=serializer_context
-            ).data,
-            'due_tomorrow': TaskSummarySerializer(
-                tasks.filter(end_date=tomorrow), many=True, context=serializer_context
-            ).data,
-            'due_this_week': TaskSummarySerializer(
-                tasks.filter(end_date__gt=tomorrow, end_date__lte=week_end), many=True, context=serializer_context
-            ).data,
-            'due_this_month': TaskSummarySerializer(
-                tasks.filter(end_date__gt=week_end, end_date__lte=month_end), many=True, context=serializer_context
-            ).data,
-            'overdue': TaskSummarySerializer(
-                tasks.filter(end_date__lt=today), many=True, context=serializer_context
-            ).data,
-        }
+        # Debug: try basic data access without serializer
+        try:
+            task_list = list(tasks.values('id', 'title', 'end_date', 'todo_list__name', 'todo_list__color'))
+            dashboard_data = {
+                'debug': True,
+                'task_count': len(task_list),
+                'tasks': task_list,
+                'due_today': [],
+                'due_tomorrow': [],
+                'due_this_week': [],
+                'due_this_month': [],
+                'overdue': [],
+            }
+        except Exception as e:
+            dashboard_data = {
+                'error': str(e),
+                'debug': True,
+                'today': str(today)
+            }
         
-        # Add summary statistics
-        dashboard_data['stats'] = {
-            'total_active_tasks': tasks.count(),
-            'due_today_count': len(dashboard_data['due_today']),
-            'due_tomorrow_count': len(dashboard_data['due_tomorrow']),
-            'due_this_week_count': len(dashboard_data['due_this_week']),
-            'due_this_month_count': len(dashboard_data['due_this_month']),
-            'overdue_count': len(dashboard_data['overdue']),
-        }
+        # Add summary statistics if not in error state
+        if 'error' not in dashboard_data:
+            try:
+                dashboard_data['stats'] = {
+                    'total_active_tasks': tasks.count(),
+                    'due_today_count': len(dashboard_data['due_today']),
+                    'due_tomorrow_count': len(dashboard_data['due_tomorrow']),
+                    'due_this_week_count': len(dashboard_data['due_this_week']),
+                    'due_this_month_count': len(dashboard_data['due_this_month']),
+                    'overdue_count': len(dashboard_data['overdue']),
+                }
+            except Exception as e:
+                dashboard_data['stats_error'] = str(e)
         
         return Response(dashboard_data)
     
