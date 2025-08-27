@@ -71,12 +71,12 @@ testAndAddSampleData()
 Or use the "Try Sample Data" button on the Projects page.
 
 📋 Prerequisites:
-1. Backend must be running on http://localhost:8000 ✅
+1. Backend must be running on http://localhost:8001 ✅
 2. User must be logged in to the application
-3. Frontend must be running on http://localhost:3000 ✅
+3. Frontend must be running on http://localhost:3001 ✅
 
 🔧 If you encounter issues:
 1. Make sure you're logged in to the app
 2. Check browser console for detailed error messages
-3. Verify backend is running: http://localhost:8000/admin/
+3. Verify backend is running: http://localhost:8001/admin/
 `);

@@ -135,7 +135,7 @@ export const useNotifications = () => {
   const connectWebSocket = (userId?: string) => {
     if (!userId) return;
 
-    const wsUrl = `${process.env.REACT_APP_WS_URL || 'ws://localhost:8000'}/ws/notifications/${userId}/`;
+    const wsUrl = `${process.env.REACT_APP_WS_URL || 'ws://localhost:8001'}/ws/notifications/${userId}/`;
     
     try {
       wsRef.current = new WebSocket(wsUrl);

@@ -1,0 +1,1 @@
+- You need to start backend on 8001 port and frontend on 3001 port whenever required.

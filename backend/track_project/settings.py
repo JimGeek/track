@@ -52,11 +52,13 @@ INSTALLED_APPS = [
     "projects",
     "features",
     "workflow",
+    "todos",
 ]
 
 MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -128,6 +130,9 @@ STATICFILES_DIRS = [
     BASE_DIR / "static",
 ]
 
+# WhiteNoise configuration for production
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+
 # Media files (uploads)
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
@@ -185,7 +190,7 @@ SIMPLE_JWT = {
 # CORS Configuration for frontend-backend communication
 CORS_ALLOWED_ORIGINS = config(
     "CORS_ALLOWED_ORIGINS", 
-    default="http://localhost:3000,http://127.0.0.1:3000", 
+    default="http://localhost:3000,http://127.0.0.1:3000,http://localhost:3002,http://127.0.0.1:3002", 
     cast=lambda v: [h.strip() for h in v.split(",")]
 )
 
@@ -195,6 +200,15 @@ CORS_ALLOW_CREDENTIALS = True
 SECURE_BROWSER_XSS_FILTER = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = 'DENY'
+
+# Production Security Settings
+SECURE_HSTS_SECONDS = config('SECURE_HSTS_SECONDS', default=31536000, cast=int)
+SECURE_HSTS_INCLUDE_SUBDOMAINS = config('SECURE_HSTS_INCLUDE_SUBDOMAINS', default=True, cast=bool)
+SECURE_HSTS_PRELOAD = config('SECURE_HSTS_PRELOAD', default=True, cast=bool)
+SECURE_SSL_REDIRECT = config('SECURE_SSL_REDIRECT', default=False, cast=bool)
+SESSION_COOKIE_SECURE = config('SESSION_COOKIE_SECURE', default=False, cast=bool)
+CSRF_COOKIE_SECURE = config('CSRF_COOKIE_SECURE', default=False, cast=bool)
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 # Rate limiting configuration
 RATELIMIT_ENABLE = True

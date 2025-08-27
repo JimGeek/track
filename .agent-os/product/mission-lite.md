@@ -1,5 +1,5 @@
-# Track Mission (Lite)
+# TrackFlow Mission (Lite)
 
-Track is a comprehensive project and feature request management platform that transforms how development teams organize, visualize, and deliver complex projects.
+TrackFlow is a minimalistic todo list application that helps productivity-focused individuals and teams manage multiple projects through intuitive task organization, providing comprehensive views (List, Kanban, Gantt) with lightning-fast performance inspired by Vercel and Notion's clean aesthetic.
 
-Track serves project managers, development teams, and product managers who need to coordinate hierarchical feature development with intelligent deadline management and visual timeline analytics. Unlike flat project management tools, Track natively understands multi-level software projects with unlimited hierarchy depths, automatic overlap detection, and real-time collaboration features that eliminate timeline chaos and fragmented project visibility.
+TrackFlow serves freelancers, consultants, and small teams who need to manage multiple projects with varying priorities and deadlines. Unlike heavy project management platforms that take 3-5 seconds to load or oversimplified apps that lack features, TrackFlow provides exactly the right feature set with sub-second response times and minimalistic design that reduces cognitive load while maintaining powerful functionality across three seamless viewing modes.

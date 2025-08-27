@@ -1,6 +1,6 @@
 import React, { useState, useRef, memo } from 'react';
 import Modal from '../ui/Modal';
-import Button from '../ui/Button';
+import { Button } from '../ui/Button';
 import LoadingSpinner from '../ui/LoadingSpinner';
 import { useToast } from '../ui/Toast';
 import { importFromJSON, importFromCSV, ExportData } from '../../utils/export';
@@ -296,11 +296,11 @@ const ImportModal: React.FC<ImportModalProps> = memo(({ isOpen, onClose, onImpor
             Cancel
           </Button>
           <Button
-            variant="primary"
+            variant="default"
             onClick={handleImport}
             disabled={!selectedFile || isImporting}
-            leftIcon={isImporting ? <LoadingSpinner size="sm" color="white" /> : undefined}
           >
+            {isImporting && <LoadingSpinner size="sm" color="white" />}
             {isImporting ? 'Importing...' : 'Import'}
           </Button>
         </div>
