@@ -120,66 +120,54 @@ class TaskViewSet(viewsets.ModelViewSet):
         """Create task for the authenticated user."""
         serializer.save(user=self.request.user)
     
-    @action(detail=False, methods=['get'], permission_classes=[])
+    @action(detail=False, methods=['get'])
     def dashboard(self, request):
         """
         Get dashboard data with tasks categorized by due dates.
         
         Returns:
-        - due_today: Tasks due today
-        - due_tomorrow: Tasks due tomorrow
-        - due_this_week: Tasks due within 7 days
-        - due_this_month: Tasks due within 30 days
-        - overdue: Tasks past due date
+        - today_tasks: Tasks due today
+        - recent_activity: Recently created/updated tasks
+        - upcoming_tasks: Tasks due soon
+        - summary_stats: Overall statistics
         """
+        if not request.user.is_authenticated:
+            return Response({'error': 'Authentication required'}, status=401)
+            
         today = date.today()
         tomorrow = today + timedelta(days=1)
         week_end = today + timedelta(days=7)
-        month_end = today + timedelta(days=30)
         
-        # For testing, get all tasks for user 1 (admin) with explicit model import
-        from django.contrib.auth import get_user_model
-        from .models import Task, TodoList
-        User = get_user_model()
-        admin_user = User.objects.get(id=1)
-        tasks = Task.objects.filter(user=admin_user).exclude(status=TaskStatus.DONE).select_related('todo_list')
+        # Get tasks for the authenticated user
+        tasks = Task.objects.filter(user=request.user).select_related('todo_list')
         
-        # Add context for proper serialization
-        serializer_context = {'request': request}
+        # Categorize tasks
+        today_tasks = tasks.filter(end_date=today).exclude(status=TaskStatus.DONE)
+        recent_activity = tasks.order_by('-updated_at')[:5]
+        upcoming_tasks = tasks.filter(
+            end_date__gte=tomorrow,
+            end_date__lte=week_end
+        ).exclude(status=TaskStatus.DONE)
+        overdue_tasks = tasks.filter(
+            end_date__lt=today
+        ).exclude(status=TaskStatus.DONE)
         
-        # Debug: try basic data access without serializer
-        try:
-            task_list = list(tasks.values('id', 'title', 'end_date', 'todo_list__name', 'todo_list__color'))
-            dashboard_data = {
-                'debug': True,
-                'task_count': len(task_list),
-                'tasks': task_list,
-                'due_today': [],
-                'due_tomorrow': [],
-                'due_this_week': [],
-                'due_this_month': [],
-                'overdue': [],
+        # Serialize the data
+        context = {'request': request}
+        dashboard_data = {
+            'today_tasks': TaskSummarySerializer(today_tasks, many=True, context=context).data,
+            'recent_activity': TaskSummarySerializer(recent_activity, many=True, context=context).data,
+            'upcoming_tasks': TaskSummarySerializer(upcoming_tasks, many=True, context=context).data,
+            'summary_stats': {
+                'total_tasks': tasks.count(),
+                'completed_tasks': tasks.filter(status=TaskStatus.DONE).count(),
+                'ongoing_tasks': tasks.filter(status=TaskStatus.ONGOING).count(),
+                'todo_tasks': tasks.filter(status=TaskStatus.TODO).count(),
+                'overdue_tasks': overdue_tasks.count(),
+                'today_tasks_count': today_tasks.count(),
+                'upcoming_tasks_count': upcoming_tasks.count(),
             }
-        except Exception as e:
-            dashboard_data = {
-                'error': str(e),
-                'debug': True,
-                'today': str(today)
-            }
-        
-        # Add summary statistics if not in error state
-        if 'error' not in dashboard_data:
-            try:
-                dashboard_data['stats'] = {
-                    'total_active_tasks': tasks.count(),
-                    'due_today_count': len(dashboard_data['due_today']),
-                    'due_tomorrow_count': len(dashboard_data['due_tomorrow']),
-                    'due_this_week_count': len(dashboard_data['due_this_week']),
-                    'due_this_month_count': len(dashboard_data['due_this_month']),
-                    'overdue_count': len(dashboard_data['overdue']),
-                }
-            except Exception as e:
-                dashboard_data['stats_error'] = str(e)
+        }
         
         return Response(dashboard_data)
     

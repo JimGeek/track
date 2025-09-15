@@ -114,7 +114,7 @@ class TodoListModelTest(TestCase):
         
         # Refresh from database
         todo_list.refresh_from_db()
-        self.assertEqual(todo_list.completed_count, 2)
+        self.assertEqual(todo_list.completed_tasks, 2)
 
 
 class TaskModelTest(TestCase):

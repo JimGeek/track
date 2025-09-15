@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import MainLayout from '../components/layout/MainLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import TodoListFormModal from '../components/todo-lists/TodoListFormModal';
+import { TodoListEditModal } from '../components/TodoListEditModal';
 import { todoApiService, TodoListListItem, CreateTodoListRequest, UpdateTodoListRequest } from '../services/todoApi';
 import { 
   Plus, 
@@ -17,7 +18,8 @@ import {
   Circle,
   Users,
   Loader2,
-  AlertCircle
+  AlertCircle,
+  Star
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -30,7 +32,8 @@ import {
 const TodoLists: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [editingList, setEditingList] = useState<{id?: string; name: string; description: string; color: string} | null>(null);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingList, setEditingList] = useState<TodoListListItem | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [todoLists, setTodoLists] = useState<TodoListListItem[]>([]);
   const [isLoadingLists, setIsLoadingLists] = useState(true);
@@ -41,12 +44,11 @@ const TodoLists: React.FC = () => {
     list.description.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // Fetch todo lists on component mount
-  useEffect(() => {
-    fetchTodoLists();
-  }, []);
+  // Separate favorites and non-favorites
+  const favoriteLists = filteredTodoLists.filter(list => list.is_favorite);
+  const regularLists = filteredTodoLists.filter(list => !list.is_favorite);
 
-  const fetchTodoLists = async () => {
+  const fetchTodoLists = useCallback(async () => {
     setIsLoadingLists(true);
     setError(null);
     try {
@@ -61,7 +63,12 @@ const TodoLists: React.FC = () => {
     } finally {
       setIsLoadingLists(false);
     }
-  };
+  }, [searchTerm]);
+
+  // Fetch todo lists on component mount
+  useEffect(() => {
+    fetchTodoLists();
+  }, [fetchTodoLists]);
 
   // Refetch when search term changes
   useEffect(() => {
@@ -72,7 +79,7 @@ const TodoLists: React.FC = () => {
     }, 300);
 
     return () => clearTimeout(debounceTimeout);
-  }, [searchTerm]);
+  }, [searchTerm, fetchTodoLists]);
 
   const getCompletionPercentage = (completed: number, total: number) => {
     if (total === 0) return 0;
@@ -93,12 +100,30 @@ const TodoLists: React.FC = () => {
   const handleEditList = (listId: string) => {
     const list = todoLists.find(l => l.id === listId);
     if (list) {
-      setEditingList({
-        id: list.id,
-        name: list.name,
-        description: list.description,
-        color: list.color
-      });
+      setEditingList(list);
+      setShowEditModal(true);
+    }
+  };
+
+  const handleToggleFavorite = async (listId: string) => {
+    try {
+      const list = todoLists.find(l => l.id === listId);
+      if (!list) return;
+
+      const updateData: UpdateTodoListRequest = {
+        is_favorite: !list.is_favorite
+      };
+      const response = await todoApiService.updateTodoList(listId, updateData);
+      
+      // Update the list in state
+      setTodoLists(prev => prev.map(l => 
+        l.id === listId 
+          ? { ...l, is_favorite: !l.is_favorite }
+          : l
+      ));
+    } catch (error: any) {
+      console.error('Error updating favorite:', error);
+      setError('Failed to update favorite. Please try again.');
     }
   };
 
@@ -124,7 +149,8 @@ const TodoLists: React.FC = () => {
         const updateData: UpdateTodoListRequest = {
           name: listData.name,
           description: listData.description,
-          color: listData.color
+          color: listData.color,
+          deadline: listData.deadline
         };
         const response = await todoApiService.updateTodoList(editingList.id, updateData);
         
@@ -139,7 +165,8 @@ const TodoLists: React.FC = () => {
         const createData: CreateTodoListRequest = {
           name: listData.name,
           description: listData.description,
-          color: listData.color
+          color: listData.color,
+          deadline: listData.deadline
         };
         const response = await todoApiService.createTodoList(createData);
         
@@ -158,11 +185,153 @@ const TodoLists: React.FC = () => {
     }
   };
 
+  const handleEditSave = async (listData: any) => {
+    if (!editingList) return;
+    
+    setIsLoading(true);
+    try {
+      const updateData: UpdateTodoListRequest = {
+        name: listData.name,
+        description: listData.description,
+        color: listData.color,
+        deadline: listData.deadline
+      };
+      const response = await todoApiService.updateTodoList(editingList.id, updateData);
+      
+      // Update the list in state
+      setTodoLists(prev => prev.map(list => 
+        list.id === editingList.id 
+          ? { ...list, ...response.data }
+          : list
+      ));
+      
+      // Close modal
+      setShowEditModal(false);
+      setEditingList(null);
+    } catch (error: any) {
+      console.error('Error updating list:', error);
+      throw error; // Re-throw to let modal handle the error
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleCloseModal = () => {
     if (!isLoading) {
       setShowCreateModal(false);
+      setShowEditModal(false);
       setEditingList(null);
     }
+  };
+
+  const renderListCard = (list: TodoListListItem) => {
+    const completionPercentage = getCompletionPercentage(list.completed_tasks || 0, list.task_count || 0);
+    
+    return (
+      <Card key={list.id} className="hover:shadow-md transition-shadow">
+        <CardHeader>
+          <div className="flex items-start justify-between">
+            <div className="flex items-center space-x-3">
+              <div 
+                className="w-4 h-4 rounded-full flex-shrink-0"
+                style={{ backgroundColor: list.color }}
+              />
+              <div className="min-w-0 flex-1">
+                <CardTitle className="text-lg truncate">
+                  <Link 
+                    to={`/todo-lists/${list.id}`}
+                    className="hover:text-primary transition-colors"
+                  >
+                    {list.name}
+                  </Link>
+                </CardTitle>
+                {list.description && (
+                  <CardDescription className="line-clamp-2">
+                    {list.description}
+                  </CardDescription>
+                )}
+              </div>
+            </div>
+            
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm">
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => handleToggleFavorite(list.id)}>
+                  <Star className="mr-2 h-4 w-4" />
+                  {list.is_favorite ? 'Remove from Favorites' : 'Add to Favorites'}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleEditList(list.id)}>
+                  <Edit2 className="mr-2 h-4 w-4" />
+                  Edit
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to={`/todo-lists/${list.id}`}>
+                    <Users className="mr-2 h-4 w-4" />
+                    View Tasks
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem 
+                  onClick={() => handleDeleteList(list.id)}
+                  className="text-red-600"
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </CardHeader>
+        
+        <CardContent>
+          <div className="space-y-4">
+            {/* Task Stats */}
+            <div className="flex items-center justify-between text-sm">
+              <div className="flex items-center space-x-4">
+                <div className="flex items-center space-x-1">
+                  <CheckCircle2 className="h-4 w-4 text-green-600" />
+                  <span>{list.completed_tasks || 0}</span>
+                </div>
+                <div className="flex items-center space-x-1">
+                  <Circle className="h-4 w-4 text-gray-400" />
+                  <span>{(list.task_count || 0) - (list.completed_tasks || 0)}</span>
+                </div>
+              </div>
+              <span className="font-medium">{completionPercentage}%</span>
+            </div>
+
+            {/* Progress Bar */}
+            <div className="w-full bg-gray-200 rounded-full h-2">
+              <div 
+                className={`h-2 rounded-full transition-all duration-500 ${getProgressColor(completionPercentage)}`}
+                style={{ width: `${completionPercentage}%` }}
+              />
+            </div>
+
+            {/* Deadline */}
+            {list.deadline && (
+              <div className="flex items-center space-x-1 text-xs text-muted-foreground">
+                <Calendar className="h-3 w-3" />
+                <span>Due: {new Date(list.deadline).toLocaleDateString()}</span>
+              </div>
+            )}
+
+            {/* Last Updated */}
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <div className="flex items-center space-x-1">
+                <Calendar className="h-3 w-3" />
+                <span>Updated {new Date(list.updated_at).toLocaleDateString()}</span>
+              </div>
+              <span>{list.task_count} {list.task_count === 1 ? 'task' : 'tasks'}</span>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
   };
 
   return (
@@ -222,104 +391,31 @@ const TodoLists: React.FC = () => {
             </div>
           </div>
         ) : filteredTodoLists.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredTodoLists.map((list) => {
-              const completionPercentage = getCompletionPercentage(list.completed_tasks || 0, list.task_count || 0);
-              
-              return (
-                <Card key={list.id} className="hover:shadow-md transition-shadow">
-                  <CardHeader>
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center space-x-3">
-                        <div 
-                          className="w-4 h-4 rounded-full flex-shrink-0"
-                          style={{ backgroundColor: list.color }}
-                        />
-                        <div className="min-w-0 flex-1">
-                          <CardTitle className="text-lg truncate">
-                            <Link 
-                              to={`/todo-lists/${list.id}`}
-                              className="hover:text-primary transition-colors"
-                            >
-                              {list.name}
-                            </Link>
-                          </CardTitle>
-                          {list.description && (
-                            <CardDescription className="line-clamp-2">
-                              {list.description}
-                            </CardDescription>
-                          )}
-                        </div>
-                      </div>
-                      
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="sm">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => handleEditList(list.id)}>
-                            <Edit2 className="mr-2 h-4 w-4" />
-                            Edit
-                          </DropdownMenuItem>
-                          <DropdownMenuItem asChild>
-                            <Link to={`/todo-lists/${list.id}`}>
-                              <Users className="mr-2 h-4 w-4" />
-                              View Tasks
-                            </Link>
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem 
-                            onClick={() => handleDeleteList(list.id)}
-                            className="text-red-600"
-                          >
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                  </CardHeader>
-                  
-                  <CardContent>
-                    <div className="space-y-4">
-                      {/* Task Stats */}
-                      <div className="flex items-center justify-between text-sm">
-                        <div className="flex items-center space-x-4">
-                          <div className="flex items-center space-x-1">
-                            <CheckCircle2 className="h-4 w-4 text-green-600" />
-                            <span>{list.completed_tasks || 0}</span>
-                          </div>
-                          <div className="flex items-center space-x-1">
-                            <Circle className="h-4 w-4 text-gray-400" />
-                            <span>{(list.task_count || 0) - (list.completed_tasks || 0)}</span>
-                          </div>
-                        </div>
-                        <span className="font-medium">{completionPercentage}%</span>
-                      </div>
+          <div className="space-y-8">
+            {/* Favorites Section */}
+            {favoriteLists.length > 0 && (
+              <div>
+                <h2 className="text-xl font-semibold mb-4 flex items-center">
+                  <Star className="h-5 w-5 text-yellow-500 mr-2 fill-yellow-500" />
+                  Favorites ({favoriteLists.length})
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {favoriteLists.map(renderListCard)}
+                </div>
+              </div>
+            )}
 
-                      {/* Progress Bar */}
-                      <div className="w-full bg-gray-200 rounded-full h-2">
-                        <div 
-                          className={`h-2 rounded-full transition-all duration-500 ${getProgressColor(completionPercentage)}`}
-                          style={{ width: `${completionPercentage}%` }}
-                        />
-                      </div>
-
-                      {/* Last Updated */}
-                      <div className="flex items-center justify-between text-xs text-muted-foreground">
-                        <div className="flex items-center space-x-1">
-                          <Calendar className="h-3 w-3" />
-                          <span>Updated {new Date(list.updated_at).toLocaleDateString()}</span>
-                        </div>
-                        <span>{list.task_count} {list.task_count === 1 ? 'task' : 'tasks'}</span>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
+            {/* All Other Lists Section */}
+            {regularLists.length > 0 && (
+              <div>
+                <h2 className="text-xl font-semibold mb-4 flex items-center">
+                  All Lists ({regularLists.length})
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {regularLists.map(renderListCard)}
+                </div>
+              </div>
+            )}
           </div>
         ) : (
           <div className="text-center py-12">
@@ -352,13 +448,14 @@ const TodoLists: React.FC = () => {
           isLoading={isLoading}
         />
 
-        <TodoListFormModal
-          isOpen={!!editingList}
-          onClose={handleCloseModal}
-          onSave={handleSaveList}
-          todoList={editingList}
-          isLoading={isLoading}
-        />
+        {editingList && (
+          <TodoListEditModal
+            isOpen={showEditModal}
+            onClose={handleCloseModal}
+            todoList={editingList}
+            onSave={handleEditSave}
+          />
+        )}
       </div>
     </MainLayout>
   );

@@ -56,6 +56,15 @@ class TodoList(models.Model):
         default='#3B82F6',
         help_text="Hex color code for UI display (e.g., #3B82F6)"
     )
+    deadline = models.DateField(
+        null=True, 
+        blank=True, 
+        help_text="Deadline for completing the entire todo list"
+    )
+    is_favorite = models.BooleanField(
+        default=False,
+        help_text="Whether this todo list is marked as favorite"
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     

@@ -32,6 +32,8 @@ class TodoListSerializer(serializers.ModelSerializer):
             'name', 
             'description',
             'color',
+            'deadline',
+            'is_favorite',
             'task_count',
             'completed_tasks', 
             'progress_percentage',
@@ -143,6 +145,20 @@ class TaskSerializer(serializers.ModelSerializer):
             if todo_list.user != user:
                 raise serializers.ValidationError({
                     'todo_list': 'You can only create tasks in your own todo lists.'
+                })
+            
+            # Check if task end date is within todo list deadline
+            if end_date and todo_list.deadline and end_date > todo_list.deadline:
+                raise serializers.ValidationError({
+                    'end_date': f'Task end date cannot be later than the todo list deadline ({todo_list.deadline}).'
+                })
+        
+        # For updates, also check against current todo list deadline
+        elif self.instance and end_date:
+            todo_list = self.instance.todo_list
+            if todo_list.deadline and end_date > todo_list.deadline:
+                raise serializers.ValidationError({
+                    'end_date': f'Task end date cannot be later than the todo list deadline ({todo_list.deadline}).'
                 })
         
         return data
@@ -273,6 +289,8 @@ class TodoListSummarySerializer(serializers.ModelSerializer):
             'id',
             'name',
             'color',
+            'deadline',
+            'is_favorite',
             'task_count',
             'completed_tasks',
             'progress_percentage', 

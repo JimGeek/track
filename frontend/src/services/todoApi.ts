@@ -6,10 +6,14 @@ export interface TodoList {
   name: string;
   description: string;
   color: string;
+  deadline?: string;
+  is_favorite: boolean;
   created_at: string;
   updated_at: string;
   task_count: number;
   completed_tasks: number;
+  progress_percentage: number;
+  overdue_count: number;
   can_edit: boolean;
 }
 
@@ -18,10 +22,14 @@ export interface TodoListListItem {
   name: string;
   description: string;
   color: string;
+  deadline?: string;
+  is_favorite: boolean;
   created_at: string;
   updated_at: string;
   task_count: number;
   completed_tasks: number;
+  progress_percentage: number;
+  overdue_count: number;
 }
 
 export interface Task {
@@ -44,12 +52,16 @@ export interface CreateTodoListRequest {
   name: string;
   description?: string;
   color?: string;
+  deadline?: string;
+  is_favorite?: boolean;
 }
 
 export interface UpdateTodoListRequest {
   name?: string;
   description?: string;
   color?: string;
+  deadline?: string;
+  is_favorite?: boolean;
 }
 
 export interface CreateTaskRequest {
