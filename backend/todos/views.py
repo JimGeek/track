@@ -147,20 +147,9 @@ class TaskViewSet(viewsets.ModelViewSet):
         # Add context for proper serialization
         serializer_context = {'request': request}
         
-        # Debug: try basic data access without serializer, step by step
+        # Debug: try basic data access without serializer
         try:
-            # First try without join
-            task_count = tasks.count()
-            print(f"Basic task count: {task_count}")
-            
-            # Try simple values() without join
-            simple_tasks = list(tasks.values('id', 'title', 'end_date'))
-            print(f"Simple tasks query worked: {len(simple_tasks)}")
-            
-            # Now try with join
             task_list = list(tasks.values('id', 'title', 'end_date', 'todo_list__name', 'todo_list__color'))
-            print(f"Join query worked: {len(task_list)}")
-            
             dashboard_data = {
                 'debug': True,
                 'task_count': len(task_list),
