@@ -232,14 +232,35 @@ class TodoApiService {
   }
 
   async getRecentActivity(limit: number = 10): Promise<AxiosResponse<{ results: RecentActivity[] }>> {
-    // For now, return empty results since recent activity isn't implemented in the Django backend
-    return {
-      data: { results: [] },
-      status: 200,
-      statusText: 'OK',
-      headers: {},
-      config: {} as any
-    } as AxiosResponse<{ results: RecentActivity[] }>;
+    try {
+      const response = await this.client.get(`/api/activities/recent/?limit=${limit}`);
+      
+      // Transform Django activity data to match frontend RecentActivity interface
+      const transformedResults: RecentActivity[] = response.data.results.map((activity: any) => ({
+        id: activity.id,
+        type: activity.activity_type,
+        title: activity.title,
+        description: activity.description,
+        todo_list_name: activity.todo_list_name,
+        task_title: activity.task_title,
+        timestamp: activity.timestamp,
+      }));
+      
+      return {
+        ...response,
+        data: { results: transformedResults }
+      };
+    } catch (error) {
+      console.error('Error fetching recent activity:', error);
+      // Return empty results as fallback
+      return {
+        data: { results: [] },
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        config: {} as any
+      } as AxiosResponse<{ results: RecentActivity[] }>;
+    }
   }
 
   async getTasksDueToday(): Promise<AxiosResponse<{ results: Task[] }>> {
@@ -307,145 +328,17 @@ class TodoApiService {
     end_date?: string;
     is_overdue?: boolean;
   }): Promise<AxiosResponse<{ results: Task[]; count: number; next: string | null; previous: string | null }>> {
-    // For demo purposes when backend is not available, return mock data
-    try {
-      const searchParams = new URLSearchParams();
-      if (params) {
-        Object.entries(params).forEach(([key, value]) => {
-          if (value !== undefined && value !== '') {
-            searchParams.append(key, String(value));
-          }
-        });
-      }
-      const queryString = searchParams.toString();
-      const url = queryString ? `/api/tasks/?${queryString}` : '/api/tasks/';
-      return this.client.get(url);
-    } catch (error) {
-      // Return mock data when backend is not available
-      console.log('Backend not available, returning mock data for calendar demo');
-      const mockTasks: Task[] = [
-        {
-          id: '1',
-          todo_list: 'personal',
-          title: 'Complete project proposal',
-          description: 'Write and submit the final project proposal for the new client',
-          priority: 'high',
-          status: 'todo',
-          start_date: new Date().toISOString().split('T')[0],
-          end_date: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          is_overdue: false,
-          can_edit: true
-        },
-        {
-          id: '2',
-          todo_list: 'work',
-          title: 'Team meeting preparation',
-          description: 'Prepare slides and agenda for the weekly team meeting',
-          priority: 'medium',
-          status: 'ongoing',
-          start_date: new Date(Date.now() + 1 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-          end_date: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          is_overdue: false,
-          can_edit: true
-        },
-        {
-          id: '3',
-          todo_list: 'personal',
-          title: 'Review design mockups',
-          description: 'Review the new UI mockups and provide feedback to the design team',
-          priority: 'urgent',
-          status: 'todo',
-          start_date: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-          end_date: new Date(Date.now() + 4 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          is_overdue: false,
-          can_edit: true
-        },
-        {
-          id: '4',
-          todo_list: 'work',
-          title: 'Code refactoring',
-          description: 'Refactor the authentication module to improve performance',
-          priority: 'low',
-          status: 'done',
-          start_date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-          end_date: new Date(Date.now() + 1 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          is_overdue: false,
-          can_edit: true
-        },
-        {
-          id: '5',
-          todo_list: 'personal',
-          title: 'Client presentation',
-          description: 'Present the completed project to the client and gather feedback',
-          priority: 'high',
-          status: 'todo',
-          start_date: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-          end_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          is_overdue: false,
-          can_edit: true
-        },
-        {
-          id: '6',
-          todo_list: 'work',
-          title: 'Database optimization',
-          description: 'Optimize database queries and improve performance',
-          priority: 'medium',
-          status: 'ongoing',
-          start_date: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-          end_date: new Date(Date.now() + 6 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          is_overdue: false,
-          can_edit: true
-        },
-        {
-          id: '7',
-          todo_list: 'personal',
-          title: 'Write documentation',
-          description: 'Update API documentation with latest changes',
-          priority: 'low',
-          status: 'todo',
-          start_date: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-          end_date: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          is_overdue: false,
-          can_edit: true
-        },
-        {
-          id: '8',
-          todo_list: 'work',
-          title: 'Security audit',
-          description: 'Conduct security audit and address any vulnerabilities',
-          priority: 'urgent',
-          status: 'todo',
-          start_date: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-          end_date: new Date(Date.now() + 1 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          is_overdue: true,
-          can_edit: true
+    const searchParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== '') {
+          searchParams.append(key, String(value));
         }
-      ];
-
-      return {
-        data: { results: mockTasks, count: mockTasks.length, next: null, previous: null },
-        status: 200,
-        statusText: 'OK',
-        headers: {},
-        config: {} as any
-      } as AxiosResponse<{ results: Task[]; count: number; next: string | null; previous: string | null }>;
+      });
     }
+    const queryString = searchParams.toString();
+    const url = queryString ? `/api/tasks/?${queryString}` : '/api/tasks/';
+    return this.client.get(url);
   }
 
   async getTask(id: string): Promise<AxiosResponse<Task>> {
@@ -453,75 +346,15 @@ class TodoApiService {
   }
 
   async createTask(data: CreateTaskRequest): Promise<AxiosResponse<Task>> {
-    try {
-      return this.client.post('/api/tasks/', data);
-    } catch (error) {
-      // Return mock created task when backend is not available
-      console.log('Backend not available, returning mock created task');
-      const mockTask: Task = {
-        id: Date.now().toString(),
-        todo_list: data.todo_list || 'default',
-        title: data.title,
-        description: data.description || '',
-        priority: data.priority || 'medium',
-        status: data.status || 'todo',
-        start_date: data.start_date,
-        end_date: data.end_date,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        is_overdue: false,
-        can_edit: true
-      };
-
-      return {
-        data: mockTask,
-        status: 201,
-        statusText: 'Created',
-        headers: {},
-        config: {} as any
-      } as AxiosResponse<Task>;
-    }
+    return this.client.post('/api/tasks/', data);
   }
 
   async updateTask(id: string, data: UpdateTaskRequest): Promise<AxiosResponse<Task>> {
-    try {
-      return this.client.patch(`/api/tasks/${id}/`, data);
-    } catch (error) {
-      // Return mock updated task when backend is not available
-      console.log('Backend not available, returning mock updated task');
-      const mockTask: Task = {
-        id: id,
-        todo_list: 'default',
-        title: data.title || 'Updated Task',
-        description: data.description || 'Updated description',
-        priority: data.priority || 'medium',
-        status: data.status || 'todo',
-        start_date: data.start_date,
-        end_date: data.end_date,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        is_overdue: false,
-        can_edit: true
-      };
-
-      return {
-        data: mockTask,
-        status: 200,
-        statusText: 'OK',
-        headers: {},
-        config: {} as any
-      } as AxiosResponse<Task>;
-    }
+    return this.client.patch(`/api/tasks/${id}/`, data);
   }
 
   async deleteTask(id: string): Promise<void> {
-    try {
-      await this.client.delete(`/api/tasks/${id}/`);
-    } catch (error) {
-      // Mock delete success when backend is not available
-      console.log('Backend not available, mocking task deletion');
-      return Promise.resolve();
-    }
+    await this.client.delete(`/api/tasks/${id}/`);
   }
 
   async updateTaskStatus(id: string, status: 'todo' | 'ongoing' | 'done'): Promise<AxiosResponse<Task>> {
@@ -579,6 +412,22 @@ class TodoApiService {
   // Health check
   async healthCheck(): Promise<AxiosResponse<{ status: string; timestamp: string }>> {
     return this.client.get('/api/todos/health/');
+  }
+
+  // User data management
+  async clearUserData(password: string): Promise<AxiosResponse<{
+    message: string;
+    deleted_counts: {
+      todo_lists: number;
+      tasks: number;
+      activities: number;
+      workflow_history: number;
+      projects: number;
+      features: number;
+    };
+    user_preserved: boolean;
+  }>> {
+    return this.client.post('/api/auth/clear-data/', { password });
   }
 }
 

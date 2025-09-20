@@ -14,9 +14,10 @@ from django.db.models import Q, Count, Case, When, IntegerField
 from datetime import date, timedelta
 
 from .models import TodoList, Task, TaskStatus
+from .activity_models import Activity
 from .serializers import (
     TodoListSerializer, TaskSerializer, TaskCreateSerializer,
-    TodoListSummarySerializer, TaskSummarySerializer
+    TodoListSummarySerializer, TaskSummarySerializer, ActivitySerializer
 )
 from .filters import TodoListFilter, TaskFilter
 
@@ -244,3 +245,71 @@ class TaskViewSet(viewsets.ModelViewSet):
                 {'detail': 'Task is not completed'}, 
                 status=status.HTTP_400_BAD_REQUEST
             )
+
+
+class ActivityViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    ViewSet for Activity model - read-only for recent activity feeds.
+    
+    Provides endpoints to retrieve user activities for dashboard
+    recent activity section and activity history.
+    """
+    
+    serializer_class = ActivitySerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [filters.OrderingFilter]
+    ordering_fields = ['timestamp']
+    ordering = ['-timestamp']  # Default ordering: newest first
+    
+    def get_queryset(self):
+        """Return activities for the authenticated user only."""
+        return Activity.objects.filter(user=self.request.user)
+    
+    @action(detail=False, methods=['get'])
+    def recent(self, request):
+        """
+        Get recent activities for the user.
+        
+        Query parameters:
+        - limit: Number of activities to return (default: 10, max: 50)
+        """
+        try:
+            limit = int(request.query_params.get('limit', 10))
+            limit = min(limit, 50)  # Cap at 50 activities
+        except (ValueError, TypeError):
+            limit = 10
+            
+        activities = self.get_queryset()[:limit]
+        serializer = self.get_serializer(activities, many=True)
+        
+        return Response({
+            'results': serializer.data,
+            'count': len(serializer.data)
+        })
+    
+    @action(detail=False, methods=['post'])
+    def cleanup_old(self, request):
+        """
+        Clean up old activities (admin only).
+        
+        Body parameters:
+        - days: Number of days to keep (default: 90)
+        """
+        if not request.user.is_staff:
+            return Response(
+                {'detail': 'Only staff users can cleanup activities'}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        try:
+            days = int(request.data.get('days', 90))
+        except (ValueError, TypeError):
+            days = 90
+            
+        deleted_count = Activity.cleanup_old_activities(days)
+        
+        return Response({
+            'message': f'Cleaned up {deleted_count} old activities',
+            'deleted_count': deleted_count,
+            'days_kept': days
+        })

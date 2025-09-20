@@ -335,9 +335,51 @@ class WorkflowMetricsViewSet(viewsets.ReadOnlyModelViewSet):
             
             total_entries = history.count()
             
-            # Calculate average time in state (simplified calculation)
-            # In a real implementation, you'd track entry/exit times more precisely
-            avg_time = 24.0  # Default 24 hours as placeholder
+            # Calculate average time in state based on historical transitions
+            avg_time = 24.0  # Default fallback
+            
+            if total_entries > 0:
+                # Get consecutive history entries to calculate time spent in each state
+                # For each entity that entered this state, find when they left it
+                state_durations = []
+                
+                entities_in_state = history.values_list('entity_id', flat=True).distinct()
+                
+                for entity_id in entities_in_state:
+                    entity_history = WorkflowHistory.objects.filter(
+                        template=template,
+                        entity_id=entity_id,
+                        created_at__gte=start_date,
+                        created_at__lte=end_date
+                    ).order_by('created_at')
+                    
+                    # Find transitions where entity entered this state
+                    for i, entry in enumerate(entity_history):
+                        if entry.to_state == state:
+                            entry_time = entry.created_at
+                            
+                            # Find when they left this state (next transition)
+                            exit_time = None
+                            if i + 1 < len(entity_history):
+                                next_entry = entity_history[i + 1]
+                                if next_entry.from_state == state:
+                                    exit_time = next_entry.created_at
+                            
+                            # If we found both entry and exit times, calculate duration
+                            if exit_time:
+                                duration = (exit_time - entry_time).total_seconds() / 3600.0  # hours
+                                state_durations.append(duration)
+                
+                # Calculate average if we have data
+                if state_durations:
+                    avg_time = sum(state_durations) / len(state_durations)
+                else:
+                    # Fallback: estimate based on time between consecutive entries
+                    if total_entries > 1:
+                        first_entry = history.earliest('created_at').created_at
+                        last_entry = history.latest('created_at').created_at
+                        total_duration = (last_entry - first_entry).total_seconds() / 3600.0
+                        avg_time = total_duration / total_entries if total_entries > 0 else 24.0
             
             metrics, created = WorkflowMetrics.objects.get_or_create(
                 template=template,

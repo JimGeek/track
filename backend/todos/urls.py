@@ -7,12 +7,13 @@ using DRF router for consistent RESTful routing.
 
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import TodoListViewSet, TaskViewSet
+from .views import TodoListViewSet, TaskViewSet, ActivityViewSet
 
 # Create a router and register our viewsets
 router = DefaultRouter()
 router.register(r'todolists', TodoListViewSet, basename='todolist')
 router.register(r'tasks', TaskViewSet, basename='task')
+router.register(r'activities', ActivityViewSet, basename='activity')
 
 urlpatterns = [
     # Include all router URLs

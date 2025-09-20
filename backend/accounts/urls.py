@@ -23,6 +23,9 @@ urlpatterns = [
     path('profile/', views.UserProfileView.as_view(), name='user-profile'),
     path('dashboard/', views.user_dashboard, name='user-dashboard'),
     
+    # Data management
+    path('clear-data/', views.clear_user_data, name='clear-user-data'),
+    
     # Health check
     path('health/', views.health_check, name='health-check'),
 ]

@@ -8,6 +8,7 @@ providing API serialization/deserialization for the simplified todo system.
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from .models import TodoList, Task, TaskPriority, TaskStatus
+from .activity_models import Activity, ActivityType
 
 User = get_user_model()
 
@@ -296,3 +297,27 @@ class TodoListSummarySerializer(serializers.ModelSerializer):
             'progress_percentage', 
             'overdue_count',
         ]
+
+
+class ActivitySerializer(serializers.ModelSerializer):
+    """
+    Serializer for Activity model.
+    
+    Provides read-only serialization for user activities in recent activity feeds.
+    """
+    
+    class Meta:
+        model = Activity
+        fields = [
+            'id',
+            'activity_type',
+            'title',
+            'description',
+            'todo_list_id',
+            'todo_list_name',
+            'task_id',
+            'task_title',
+            'timestamp',
+            'context',
+        ]
+        read_only_fields = fields  # All fields are read-only for activities

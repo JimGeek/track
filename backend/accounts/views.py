@@ -357,3 +357,94 @@ def health_check(request):
         'service': 'authentication',
         'version': '1.0.0'
     }, status=status.HTTP_200_OK)
+
+
+@api_view(['POST'])
+@permission_classes([permissions.IsAuthenticated])
+def clear_user_data(request):
+    """
+    Clear all user data (destructive operation).
+    
+    POST /api/auth/clear-data/
+    
+    This endpoint will delete:
+    - All todo lists and tasks
+    - All activities 
+    - All workflow history for the user
+    - All projects and features (if they exist)
+    
+    The user account itself is preserved.
+    """
+    user = request.user
+    
+    # Confirm with password for security
+    password = request.data.get('password')
+    if not password:
+        return Response({
+            'error': 'Password confirmation required'
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    if not user.check_password(password):
+        return Response({
+            'error': 'Invalid password'
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    # Track what we're deleting for the response
+    deleted_counts = {}
+    
+    try:
+        # Import models (do it here to avoid circular imports)
+        from todos.models import TodoList, Task
+        from todos.activity_models import Activity
+        
+        # Delete todo lists (this will cascade to tasks)
+        todo_lists_count = TodoList.objects.filter(user=user).count()
+        tasks_count = Task.objects.filter(user=user).count()
+        TodoList.objects.filter(user=user).delete()
+        
+        deleted_counts['todo_lists'] = todo_lists_count
+        deleted_counts['tasks'] = tasks_count
+        
+        # Delete activities
+        activities_count = Activity.objects.filter(user=user).count()
+        Activity.objects.filter(user=user).delete()
+        deleted_counts['activities'] = activities_count
+        
+        # Delete workflow history
+        try:
+            from workflow.models import WorkflowHistory
+            workflow_history_count = WorkflowHistory.objects.filter(changed_by=user).count()
+            WorkflowHistory.objects.filter(changed_by=user).delete()
+            deleted_counts['workflow_history'] = workflow_history_count
+        except ImportError:
+            # Workflow app might not be installed
+            deleted_counts['workflow_history'] = 0
+        
+        # Delete projects and features if they exist
+        try:
+            from projects.models import Project
+            from features.models import Feature
+            
+            projects_count = Project.objects.filter(created_by=user).count()
+            features_count = Feature.objects.filter(created_by=user).count()
+            
+            Project.objects.filter(created_by=user).delete()
+            Feature.objects.filter(created_by=user).delete()
+            
+            deleted_counts['projects'] = projects_count
+            deleted_counts['features'] = features_count
+        except ImportError:
+            # These apps might not be installed
+            deleted_counts['projects'] = 0
+            deleted_counts['features'] = 0
+        
+        return Response({
+            'message': 'All user data has been successfully cleared',
+            'deleted_counts': deleted_counts,
+            'user_preserved': True
+        }, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        return Response({
+            'error': f'Error clearing data: {str(e)}'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

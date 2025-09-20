@@ -1,7 +1,9 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { queryClient } from './lib/queryClient';
 import { AuthProvider } from './contexts/AuthContext';
+import { useServiceWorker } from './hooks/useServiceWorker';
 import LoginForm from './components/auth/LoginForm';
 import RegisterForm from './components/auth/RegisterForm';
 import ProtectedRoute from './components/auth/ProtectedRoute';
@@ -14,16 +16,24 @@ import ProjectDetails from './pages/ProjectDetails';
 import Features from './pages/Features';
 import './App.css';
 
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      retry: 1,
-      refetchOnWindowFocus: false,
-    },
-  },
-});
-
 function App() {
+  const serviceWorker = useServiceWorker();
+
+  useEffect(() => {
+    // Log service worker status
+    if (serviceWorker.isRegistered) {
+      console.log('✅ Service Worker registered - App is now optimized for performance and offline use');
+    }
+    
+    if (serviceWorker.updateAvailable) {
+      console.log('🔄 App update available - reload to get the latest version');
+    }
+    
+    if (!serviceWorker.isOnline) {
+      console.log('📴 App is offline - using cached data');
+    }
+  }, [serviceWorker.isRegistered, serviceWorker.updateAvailable, serviceWorker.isOnline]);
+
   return (
     <QueryClientProvider client={queryClient}>
       <Router>

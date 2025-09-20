@@ -14,6 +14,9 @@ from django.core.exceptions import ValidationError
 
 User = get_user_model()
 
+# Import activity models
+from .activity_models import Activity, ActivityType
+
 
 class TaskPriority(models.TextChoices):
     """Priority levels for tasks."""

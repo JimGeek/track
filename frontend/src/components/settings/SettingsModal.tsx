@@ -6,6 +6,7 @@ import ExportModal from '../export/ExportModal';
 import ImportModal from '../export/ImportModal';
 import { useNotifications } from '../../hooks/useNotifications';
 import { useToast } from '../ui/Toast';
+import { todoApiService } from '../../services/todoApi';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -16,6 +17,9 @@ const SettingsModal: React.FC<SettingsModalProps> = memo(({ isOpen, onClose }) =
   const [activeTab, setActiveTab] = useState<'general' | 'notifications' | 'data' | 'about'>('general');
   const [showExportModal, setShowExportModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
+  const [isClearing, setIsClearing] = useState(false);
+  const [showPasswordPrompt, setShowPasswordPrompt] = useState(false);
+  const [password, setPassword] = useState('');
   
   const { 
     permission, 
@@ -25,6 +29,47 @@ const SettingsModal: React.FC<SettingsModalProps> = memo(({ isOpen, onClose }) =
     disconnectWebSocket 
   } = useNotifications();
   const { showToast } = useToast();
+
+  const handleClearData = async () => {
+    if (!password.trim()) {
+      showToast({
+        type: 'error',
+        title: 'Password Required',
+        message: 'Please enter your password to confirm data deletion.',
+      });
+      return;
+    }
+
+    setIsClearing(true);
+    try {
+      const response = await todoApiService.clearUserData(password);
+      
+      showToast({
+        type: 'success',
+        title: 'Data Cleared Successfully',
+        message: `Deleted ${response.data.deleted_counts.todo_lists} todo lists, ${response.data.deleted_counts.tasks} tasks, and ${response.data.deleted_counts.activities} activities.`,
+      });
+      
+      setShowPasswordPrompt(false);
+      setPassword('');
+      onClose();
+      
+      // Optionally reload the page to show empty state
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
+      
+    } catch (error: any) {
+      console.error('Error clearing data:', error);
+      showToast({
+        type: 'error',
+        title: 'Failed to Clear Data',
+        message: error.response?.data?.error || 'An error occurred while clearing your data.',
+      });
+    } finally {
+      setIsClearing(false);
+    }
+  };
 
   const tabs = [
     { id: 'general', label: 'General', icon: '⚙️' },
@@ -302,15 +347,8 @@ const SettingsModal: React.FC<SettingsModalProps> = memo(({ isOpen, onClose }) =
                     <Button
                       variant="destructive"
                       size="sm"
-                      onClick={() => {
-                        if (window.confirm('Are you sure? This will permanently delete all your data.')) {
-                          showToast({
-                            type: 'info',
-                            title: 'Feature Not Implemented',
-                            message: 'Data clearing is not yet implemented.',
-                          });
-                        }
-                      }}
+                      onClick={() => setShowPasswordPrompt(true)}
+                      disabled={isClearing}
                     >
                       Clear All Data
                     </Button>
@@ -405,6 +443,77 @@ const SettingsModal: React.FC<SettingsModalProps> = memo(({ isOpen, onClose }) =
         onClose={() => setShowImportModal(false)}
         onImport={handleImport}
       />
+
+      {/* Password Confirmation Modal for Data Clearing */}
+      <Modal
+        isOpen={showPasswordPrompt}
+        onClose={() => {
+          setShowPasswordPrompt(false);
+          setPassword('');
+        }}
+        title="Confirm Data Deletion"
+        size="sm"
+      >
+        <div className="space-y-4">
+          <div className="flex items-center space-x-3 p-4 bg-red-50 dark:bg-red-900/20 rounded-lg">
+            <div className="flex-shrink-0">
+              <svg className="w-5 h-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div>
+              <h3 className="text-sm font-medium text-red-800 dark:text-red-200">
+                This action cannot be undone
+              </h3>
+              <p className="text-sm text-red-700 dark:text-red-300 mt-1">
+                All your todo lists, tasks, and activity history will be permanently deleted.
+              </p>
+            </div>
+          </div>
+
+          <div>
+            <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Enter your password to confirm:
+            </label>
+            <input
+              type="password"
+              id="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Enter your password"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-red-500 focus:border-red-500 dark:bg-gray-700 dark:text-white"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  handleClearData();
+                }
+              }}
+            />
+          </div>
+
+          <div className="flex space-x-3 pt-4">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowPasswordPrompt(false);
+                setPassword('');
+              }}
+              disabled={isClearing}
+              className="flex-1"
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleClearData}
+              disabled={isClearing || !password.trim()}
+              className="flex-1"
+            >
+              {isClearing ? 'Clearing...' : 'Delete All Data'}
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </>
   );
 });
