@@ -73,104 +73,119 @@ const TodoListCard = React.memo(({
 
   return (
     <Card className="hover:shadow-md transition-shadow">
-      <CardHeader>
-        <div className="flex items-start justify-between">
-          <div className="flex items-center space-x-3">
-            <div 
-              className="w-4 h-4 rounded-full flex-shrink-0"
-              style={{ backgroundColor: list.color }}
-            />
-            <div className="min-w-0 flex-1">
-              <CardTitle className="text-lg truncate">
-                <Link 
-                  to={`/todo-lists/${list.id}`}
-                  className="hover:text-primary transition-colors"
-                >
-                  {list.name}
-                </Link>
-              </CardTitle>
-              {list.description && (
-                <CardDescription className="line-clamp-2">
-                  {list.description}
-                </CardDescription>
+      <CardHeader className="pb-3">
+        <div className="space-y-3">
+          {/* Top row: Color indicator, title and favorite/menu */}
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-start space-x-3 min-w-0 flex-1">
+              <div 
+                className="w-4 h-4 rounded-full flex-shrink-0 mt-1"
+                style={{ backgroundColor: list.color }}
+              />
+              <div className="min-w-0 flex-1">
+                <CardTitle className="text-base sm:text-lg leading-tight">
+                  <Link 
+                    to={`/todo-lists/${list.id}`}
+                    className="hover:text-primary transition-colors break-words"
+                  >
+                    {list.name}
+                  </Link>
+                </CardTitle>
+              </div>
+            </div>
+            
+            <div className="flex items-center space-x-1 flex-shrink-0">
+              {list.is_favorite && (
+                <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" />
               )}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                    <MoreHorizontal className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => onToggleFavorite(list.id)}>
+                    <Star className="mr-2 h-4 w-4" />
+                    {list.is_favorite ? 'Remove from Favorites' : 'Add to Favorites'}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => onEdit(list.id)}>
+                    <Edit2 className="mr-2 h-4 w-4" />
+                    Edit
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to={`/todo-lists/${list.id}`}>
+                      <Users className="mr-2 h-4 w-4" />
+                      View Tasks
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem 
+                    onClick={() => onDelete(list.id)}
+                    className="text-red-600"
+                  >
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Delete
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
           
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm">
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => onToggleFavorite(list.id)}>
-                <Star className="mr-2 h-4 w-4" />
-                {list.is_favorite ? 'Remove from Favorites' : 'Add to Favorites'}
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onEdit(list.id)}>
-                <Edit2 className="mr-2 h-4 w-4" />
-                Edit
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link to={`/todo-lists/${list.id}`}>
-                  <Users className="mr-2 h-4 w-4" />
-                  View Tasks
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem 
-                onClick={() => onDelete(list.id)}
-                className="text-red-600"
-              >
-                <Trash2 className="mr-2 h-4 w-4" />
-                Delete
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          {/* Description row */}
+          {list.description && (
+            <CardDescription className="text-sm leading-relaxed">
+              {list.description.length > 120 
+                ? `${list.description.substring(0, 120)}...` 
+                : list.description
+              }
+            </CardDescription>
+          )}
         </div>
       </CardHeader>
       
-      <CardContent>
-        <div className="space-y-4">
-          {/* Task Stats */}
-          <div className="flex items-center justify-between text-sm">
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-1">
-                <CheckCircle2 className="h-4 w-4 text-green-600" />
-                <span>{list.completed_tasks || 0}</span>
+      <CardContent className="pt-0">
+        <div className="space-y-3">
+          {/* Task Stats and Progress */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between text-sm">
+              <div className="flex items-center space-x-3">
+                <div className="flex items-center space-x-1">
+                  <CheckCircle2 className="h-4 w-4 text-green-600" />
+                  <span className="font-medium">{list.completed_tasks || 0}</span>
+                </div>
+                <div className="flex items-center space-x-1">
+                  <Circle className="h-4 w-4 text-gray-400" />
+                  <span>{(list.task_count || 0) - (list.completed_tasks || 0)}</span>
+                </div>
               </div>
-              <div className="flex items-center space-x-1">
-                <Circle className="h-4 w-4 text-gray-400" />
-                <span>{(list.task_count || 0) - (list.completed_tasks || 0)}</span>
-              </div>
+              <span className="font-semibold text-base">{completionPercentage}%</span>
             </div>
-            <span className="font-medium">{completionPercentage}%</span>
+
+            {/* Progress Bar */}
+            <div className="w-full bg-gray-200 rounded-full h-2">
+              <div 
+                className={`h-2 rounded-full transition-all duration-500 ${progressColor}`}
+                style={{ width: `${completionPercentage}%` }}
+              />
+            </div>
           </div>
 
-          {/* Progress Bar */}
-          <div className="w-full bg-gray-200 rounded-full h-2">
-            <div 
-              className={`h-2 rounded-full transition-all duration-500 ${progressColor}`}
-              style={{ width: `${completionPercentage}%` }}
-            />
-          </div>
+          {/* Meta Information */}
+          <div className="space-y-1">
+            {/* Deadline */}
+            {list.deadline && (
+              <div className="flex items-center space-x-1 text-xs text-muted-foreground">
+                <Calendar className="h-3 w-3 flex-shrink-0" />
+                <span>Due: {new Date(list.deadline).toLocaleDateString()}</span>
+              </div>
+            )}
 
-          {/* Deadline */}
-          {list.deadline && (
-            <div className="flex items-center space-x-1 text-xs text-muted-foreground">
-              <Calendar className="h-3 w-3" />
-              <span>Due: {new Date(list.deadline).toLocaleDateString()}</span>
-            </div>
-          )}
-
-          {/* Last Updated */}
-          <div className="flex items-center justify-between text-xs text-muted-foreground">
-            <div className="flex items-center space-x-1">
-              <Calendar className="h-3 w-3" />
+            {/* Last Updated and Task Count */}
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
               <span>Updated {new Date(list.updated_at).toLocaleDateString()}</span>
+              <span className="font-medium">{list.task_count} {list.task_count === 1 ? 'task' : 'tasks'}</span>
             </div>
-            <span>{list.task_count} {list.task_count === 1 ? 'task' : 'tasks'}</span>
           </div>
         </div>
       </CardContent>
@@ -326,7 +341,7 @@ const TodoLists: React.FC = () => {
           <Star className="h-5 w-5 text-yellow-500 mr-2 fill-yellow-500" />
           Favorites ({favoriteLists.length})
         </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
           {favoriteLists.map(list => (
             <div key={list.id} onMouseEnter={() => handlePrefetchList(list.id)}>
               <TodoListCard 
@@ -350,7 +365,7 @@ const TodoLists: React.FC = () => {
         <h2 className="text-xl font-semibold mb-4 flex items-center">
           All Lists ({regularLists.length})
         </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
           {regularLists.map(list => (
             <div key={list.id} onMouseEnter={() => handlePrefetchList(list.id)}>
               <TodoListCard 
@@ -371,13 +386,13 @@ const TodoLists: React.FC = () => {
       <div className="space-y-6">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">Todo Lists</h1>
-            <p className="text-muted-foreground">
+          <div className="min-w-0 flex-1">
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Todo Lists</h1>
+            <p className="text-sm sm:text-base text-muted-foreground">
               Organize your tasks with custom lists
             </p>
           </div>
-          <Button onClick={handleCreateList}>
+          <Button onClick={handleCreateList} className="w-full sm:w-auto">
             <Plus className="mr-2 h-4 w-4" />
             Create List
           </Button>
@@ -408,7 +423,7 @@ const TodoLists: React.FC = () => {
               placeholder="Search todo lists..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
+              className="pl-10 h-10 sm:h-9"
               disabled={isLoading}
             />
           </div>
