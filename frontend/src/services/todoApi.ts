@@ -185,14 +185,14 @@ class TodoApiService {
     
     // Transform the Django response to match expected DashboardStats interface
     const stats: DashboardStats = {
-      total_todo_lists: dashboardData.stats?.total_active_lists || 0,
-      total_tasks: dashboardData.stats?.total_active_tasks || 0,
-      completed_tasks: dashboardData.stats?.completed_tasks || 0,
-      overdue_tasks: dashboardData.stats?.overdue_count || 0,
-      tasks_due_today: dashboardData.stats?.due_today_count || 0,
-      tasks_due_tomorrow: dashboardData.stats?.due_tomorrow_count || 0,
-      tasks_due_this_week: dashboardData.stats?.due_this_week_count || 0,
-      tasks_due_this_month: dashboardData.stats?.due_this_month_count || 0
+      total_todo_lists: dashboardData.summary_stats?.total_todo_lists || 0,
+      total_tasks: dashboardData.summary_stats?.total_tasks || 0,
+      completed_tasks: dashboardData.summary_stats?.completed_tasks || 0,
+      overdue_tasks: dashboardData.summary_stats?.overdue_tasks || 0,
+      tasks_due_today: dashboardData.summary_stats?.today_tasks_count || 0,
+      tasks_due_tomorrow: dashboardData.summary_stats?.due_tomorrow_count || 0,
+      tasks_due_this_week: dashboardData.summary_stats?.upcoming_tasks_count || 0,
+      tasks_due_this_month: dashboardData.summary_stats?.due_this_month_count || 0
     };
     
     return { ...response, data: stats };
@@ -233,17 +233,17 @@ class TodoApiService {
 
   async getRecentActivity(limit: number = 10): Promise<AxiosResponse<{ results: RecentActivity[] }>> {
     try {
-      const response = await this.client.get(`/api/activities/recent/?limit=${limit}`);
+      const response = await this.client.get('/api/tasks/dashboard/');
       
-      // Transform Django activity data to match frontend RecentActivity interface
-      const transformedResults: RecentActivity[] = response.data.results.map((activity: any) => ({
-        id: activity.id,
-        type: activity.activity_type,
-        title: activity.title,
-        description: activity.description,
-        todo_list_name: activity.todo_list_name,
-        task_title: activity.task_title,
-        timestamp: activity.timestamp,
+      // Transform task data from dashboard to RecentActivity interface
+      const transformedResults: RecentActivity[] = (response.data.recent_activity || []).map((task: any) => ({
+        id: task.id,
+        type: 'task_update',
+        title: `Updated: ${task.title}`,
+        description: task.description || '',
+        todo_list_name: task.todo_list_name || '',
+        task_title: task.title,
+        timestamp: task.updated_at,
       }));
       
       return {
@@ -265,22 +265,22 @@ class TodoApiService {
 
   async getTasksDueToday(): Promise<AxiosResponse<{ results: Task[] }>> {
     const response = await this.client.get('/api/tasks/dashboard/');
-    return { ...response, data: { results: response.data.due_today || [] } };
+    return { ...response, data: { results: response.data.today_tasks || [] } };
   }
 
   async getTasksDueTomorrow(): Promise<AxiosResponse<{ results: Task[] }>> {
     const response = await this.client.get('/api/tasks/dashboard/');
-    return { ...response, data: { results: response.data.due_tomorrow || [] } };
+    return { ...response, data: { results: response.data.tomorrow_tasks || [] } };
   }
 
   async getTasksDueThisWeek(): Promise<AxiosResponse<{ results: Task[] }>> {
     const response = await this.client.get('/api/tasks/dashboard/');
-    return { ...response, data: { results: response.data.due_this_week || [] } };
+    return { ...response, data: { results: response.data.upcoming_tasks || [] } };
   }
 
   async getTasksDueThisMonth(): Promise<AxiosResponse<{ results: Task[] }>> {
     const response = await this.client.get('/api/tasks/dashboard/');
-    return { ...response, data: { results: response.data.due_this_month || [] } };
+    return { ...response, data: { results: response.data.upcoming_tasks || [] } };
   }
 
   // TodoList API calls
